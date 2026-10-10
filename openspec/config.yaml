@@ -1,0 +1,61 @@
+schema: spec-driven
+
+context: |
+  Project: cv-tracker-extension (greenfield, no application code yet).
+  Product: public, GitHub-distributed Chrome/Edge MV3 extension (Load unpacked or Release .zip; no Chrome Web Store).
+  Features: LLM job-offer analysis on LinkedIn/InfoJobs with the user's own API key (Anthropic + OpenAI first),
+  profile/claims scoring, extra-application-step flags, base CV PDF pick by branch + language, local application tracking + export, saved searches ("beacons").
+  Architecture: no backend; all data stays in the browser. Stack NOT chosen (proposal/design decide; likely TypeScript + bundler + test runner).
+  Testing: to be set up. Strict TDD intent ON (RED -> GREEN), activated once a test command exists. Commits: Conventional Commits, no AI attribution.
+  Privacy: nothing personal from the private reference project may be copied into this repo.
+
+strict_tdd: false          # fail-closed: no test runner / workspace-level test command yet
+tdd_intent: true           # owner works strict RED -> GREEN; flip strict_tdd to true once the first change sets up the runner
+
+projects: []               # no project roots discovered yet (empty repo)
+
+testing:
+  status: to-be-set-up
+  test_command: ""
+  layers:
+    unit: false
+    integration: false
+    e2e: false
+  coverage: false
+  linter: ""
+  type_checker: ""
+  formatter: ""
+
+rules:
+  proposal:
+    - Choose and justify the stack (language, bundler, test runner, MV3 constraints); the first change SHOULD bootstrap tooling and the test runner.
+    - Include rollback plan for risky changes.
+    - State privacy constraints (user-owned API keys, local-only data, no personal data from the reference project).
+  specs:
+    - Use Given/When/Then for scenarios.
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY).
+  design:
+    - Document architecture decisions with rationale, including MV3 service worker lifecycle, storage, and API-key handling.
+    - Include sequence diagrams for complex flows (offer analysis, provider calls).
+  tasks:
+    - Group by phase, use hierarchical numbering.
+    - Keep tasks completable in one session.
+    - Forecast against the 400 changed-line review budget (delivery strategy auto-chain).
+  apply:
+    guidelines:
+      - Strict RED -> GREEN -> REFACTOR once a runner exists; set up the runner first.
+      - Conventional Commits, no AI attribution lines; keep tests and docs with the behavior in each work-unit commit.
+      - Never copy personal data from the private reference project.
+    tdd: true
+    test_command: ""
+  verify:
+    test_command: ""
+    build_command: ""
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas.
+
+delivery:
+  strategy: auto-chain
+  review_budget_changed_lines: 400
+  artifact_store: hybrid
