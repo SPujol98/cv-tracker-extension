@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { deriveExtensionId } from '../../src/core/extensionId.ts';
 import { checkManifest } from './manifest-rules.ts';
 
 const root = resolve(import.meta.dirname, '../..');
@@ -68,6 +69,13 @@ describe('built manifest (production build)', () => {
 
   it('satisfies every Contract L rule', () => {
     expect(checkManifest(manifest)).toEqual([]);
+  });
+
+  it('pins a key whose derived ID equals docs/extension-id.txt (SHELL-2)', async () => {
+    expect(typeof manifest.key).toBe('string');
+    const der = Uint8Array.from(Buffer.from(manifest.key as string, 'base64'));
+    const documented = readFileSync(join(root, 'docs/extension-id.txt'), 'utf8').trim();
+    expect(await deriveExtensionId(der)).toBe(documented);
   });
 
   it('declares the three extension pages and the background worker', () => {
