@@ -10,7 +10,8 @@
       "**",
       "!tests/lint-fixtures/biome",
       "!tests/lint-fixtures/core-globals",
-      "!tests/lint-fixtures/gritql"
+      "!tests/lint-fixtures/gritql",
+      "!tests/lint-fixtures/gritql-portal"
     ]
   },
   "formatter": {
@@ -69,6 +70,10 @@
   "plugins": [
     "./biome-plugins/no-new-function.grit",
     "./biome-plugins/no-html-sinks.grit",
-    "./biome-plugins/no-send-beacon.grit"
+    "./biome-plugins/no-send-beacon.grit",
+    {
+      "path": "./biome-plugins/no-forbidden-portal-strings.grit",
+      "includes": ["**", "!**/src/core/guard.ts", "!**/tests/unit/core/guard.test.ts"]
+    }
   ]
 }

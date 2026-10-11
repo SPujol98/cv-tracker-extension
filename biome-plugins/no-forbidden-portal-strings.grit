@@ -1,0 +1,11 @@
+language js
+
+// PORTAL-6: forbidden portal path strings may only appear in the navigation guard denylist and
+// its test. The exemption is declared as a plugin `includes` exclusion in biome.json (plugin globs need the `**/` prefix).
+or {
+  JsStringLiteralExpression(),
+  JsTemplateChunkElement()
+} as $text where {
+  $text <: r".*(?:/jobs-guest/|/job-apply/|runSearch).*",
+  register_diagnostic(span=$text, message="no-forbidden-portal-strings: this path form is robots-disallowed and may only appear in src/core/guard.ts and its test (PORTAL-6).", severity="error")
+}

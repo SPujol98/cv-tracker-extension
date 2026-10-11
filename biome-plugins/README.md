@@ -9,6 +9,7 @@ Source-ban rules that Biome's built-in rules do not cover. Each plugin is regist
 | `no-new-function.grit` | `new Function(...)` | SHELL-5 |
 | `no-html-sinks.grit` | `.innerHTML =`, `.outerHTML =`, `insertAdjacentHTML`, `document.write(ln)` | PRIV-4 |
 | `no-send-beacon.grit` | `navigator.sendBeacon(...)` | PRIV-2 |
+| `no-forbidden-portal-strings.grit` | String literals containing `/jobs-guest/`, `/job-apply/`, `runSearch`, except in `src/core/guard.ts` and `tests/unit/core/guard.test.ts` | PORTAL-6 |
 
 ## Decision record: GritQL versus the TypeScript-AST fallback
 
@@ -24,3 +25,5 @@ single pattern here and implement it in `scripts/check-ast-bans.ts`.
   folder (the root `biome.fixtures.json` does) or carry a copy of it.
 - A fixture test must assert that the output does not contain `during loading of plugins`;
   otherwise a plugin that failed to load looks like a rule that fired.
+- Plugin `includes` globs need a `**/` prefix (`!**/src/core/guard.ts`); repository-relative globs
+  such as `!src/core/guard.ts` are silently ignored by Biome 2.5.15.
