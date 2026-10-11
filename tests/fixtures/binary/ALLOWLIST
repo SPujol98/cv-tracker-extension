@@ -1,0 +1,2 @@
+# SHA-256 of each binary fixture allowed under tests/fixtures/binary/ (one per line: <hash>  <name>).
+# Fixtures must be synthetic (PORTAL-10). Empty until a spike adds one.
