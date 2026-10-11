@@ -132,7 +132,7 @@ Branch `feat/0b-boundaries`, created from `feat/0a-toolchain` (stacked-to-main).
 
 | Evidence | Value |
 |---|---|
-| Focused test command and exact result | `pnpm vitest run tests/lint-fixtures`: exit 0, 6 files, 61 tests passed (70 tests across the whole suite) |
+| Focused test command and exact result | `pnpm vitest run tests/lint-fixtures`: exit 0, 6 files, 66 tests passed (70 tests across the whole suite) |
 | Runtime harness command/scenario and exact result | Real Biome processes on fixture trees (config extending `biome.json`), real `depcruise` processes on generated source trees. `pnpm test` 7 files / 70 passed; `pnpm typecheck` exit 0; `pnpm lint` exit 0 (`Checked 20 files`); `pnpm depcruise` exit 0 (`no dependency violations found (2 modules, 1 dependencies cruised)`) |
 | Rollback boundary | `git revert` of the five slice commits: `biome.json` plugins and override, `biome-plugins/**`, `.dependency-cruiser.cjs`, `biome.fixtures.json` (moved back to `tests/lint-fixtures/`), the `depcruise` script, `@swc/core` and `dependency-cruiser` dev dependencies, the `allowBuilds` entry, and the new fixture tests |
 
