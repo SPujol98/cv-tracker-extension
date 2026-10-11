@@ -1,0 +1,7 @@
+{
+  "name": "fixture-transitive",
+  "private": true,
+  "dependencies": {
+    "some-lib": "1.0.0"
+  }
+}
