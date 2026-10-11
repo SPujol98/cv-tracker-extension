@@ -5,26 +5,27 @@ context: |
   Product: public, GitHub-distributed Chrome/Edge MV3 extension (Load unpacked or Release .zip; no Chrome Web Store).
   Features: LLM job-offer analysis on LinkedIn/InfoJobs with the user's own API key (Anthropic + OpenAI first),
   profile/claims scoring, extra-application-step flags, base CV PDF pick by branch + language, local application tracking + export, saved searches ("beacons").
-  Architecture: no backend; all data stays in the browser. Stack NOT chosen (proposal/design decide; likely TypeScript + bundler + test runner).
-  Testing: to be set up. Strict TDD intent ON (RED -> GREEN), activated once a test command exists. Commits: Conventional Commits, no AI attribution.
+  Architecture: no backend; all data stays in the browser. Stack: TypeScript + WXT + React, pnpm, Biome, Vitest, Playwright (design ADR-02).
+  Testing: strict TDD active (RED -> GREEN -> REFACTOR), runner Vitest via `pnpm test`. Commits: Conventional Commits, no AI attribution.
   Privacy: nothing personal from the private reference project may be copied into this repo.
 
-strict_tdd: false          # fail-closed: no test runner / workspace-level test command yet
-tdd_intent: true           # owner works strict RED -> GREEN; flip strict_tdd to true once the first change sets up the runner
+strict_tdd: true           # Vitest runner exists (foundation sub-change 0); RED -> GREEN -> REFACTOR is enforced
+tdd_intent: true           # owner works strict RED -> GREEN
 
 projects: []               # no project roots discovered yet (empty repo)
 
 testing:
-  status: to-be-set-up
-  test_command: ""
+  status: active
+  runner: vitest
+  test_command: "pnpm test"   # resolves to `vitest run`
   layers:
-    unit: false
-    integration: false
-    e2e: false
-  coverage: false
-  linter: ""
-  type_checker: ""
-  formatter: ""
+    unit: true
+    integration: true
+    e2e: true
+  coverage: true
+  linter: biome
+  type_checker: tsc
+  formatter: biome
 
 rules:
   proposal:
@@ -47,10 +48,10 @@ rules:
       - Conventional Commits, no AI attribution lines; keep tests and docs with the behavior in each work-unit commit.
       - Never copy personal data from the private reference project.
     tdd: true
-    test_command: ""
+    test_command: "pnpm test"
   verify:
-    test_command: ""
-    build_command: ""
+    test_command: "pnpm test && pnpm e2e"
+    build_command: "pnpm build"
     coverage_threshold: 0
   archive:
     - Warn before merging destructive deltas.
