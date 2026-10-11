@@ -4,7 +4,7 @@ Cumulative state of the apply phase. Each batch merges into this file; completed
 
 ## Status
 
-- Tasks complete: 23 of 171 (0.1-0.23). Next unit: PR 0e (tasks 0.24 onward).
+- Tasks complete: 27 of 171 (0.1-0.27; 0.28 documentation done, enabling branch protection is an owner action). Next unit: sub-change 1 (spikes).
 - Mode: Strict TDD from task 0.3 onward (`strict_tdd: true`, runner `vitest`, command `pnpm test`). Tasks 0.1-0.3 follow the foundation bootstrap exception from `tasks.md` (the runner and the flag flip are created by these tasks).
 - Delivery: `auto-chain`, chain strategy `stacked-to-main`. This batch is slice 0a on branch `feat/0a-toolchain` (local only, not pushed, no PR opened).
 
@@ -392,4 +392,60 @@ RED tests share a commit with their GREEN code so no branch commit carries a fai
 
 ### Remaining tasks
 
-- [ ] PR 0e (0.24-0.28), then sub-changes 1 to 7
+- (done in Batch 7) PR 0e
+
+## Batch 7: PR 0e - i18n, Playwright, CI, public docs, tasks 0.24-0.27 (+0.28 docs)
+
+Three stacked slices, all local only (not pushed, no PR opened), each under 400 authored lines (lockfile excluded):
+
+| Branch | From | Tasks | Commit | Authored lines |
+|---|---|---|---|---|
+| `feat/0e-i18n-playwright` | `feat/0d2c-alarms` | 0.24, 0.25 | `caca7ed` i18n; `a967b20` e2e | 192 + 95 = 287 |
+| `feat/0e2-ci` | `feat/0e-i18n-playwright` | 0.26 | `aa72b95` | 246 |
+| `feat/0e3-docs` | `feat/0e2-ci` | 0.27, 0.28 docs | `37c9357` docs; tracking commit | 308 |
+
+CI and docs were split into two slices because together they were 554 lines.
+
+### Completed tasks
+
+- [x] 0.24 i18n infrastructure, EN + ES (SHELL-8, ADR-19)
+- [x] 0.25 Playwright extension loading and stable ID (SHELL-2)
+- [x] 0.26 CI, CodeQL, Dependabot (SHELL-7, ADR-27)
+- [x] 0.27 Public docs skeleton (SHELL-9, PRIV-6 skeleton, ADR-27)
+- [ ] 0.28 stays open: the required-checks documentation is in `CONTRIBUTING.md`; enabling branch protection on `main` is an owner action (no repository setting was changed)
+
+### TDD Cycle Evidence
+
+| Task | Test file | RED (observed) | GREEN (observed) | REFACTOR |
+|---|---|---|---|---|
+| 0.24 | `tests/unit/i18n.test.ts`, `tests/component/i18n.test.tsx` | Missing `src/ui/i18n/*`: both files failed to load, no tests | 15 passed (parity, 8 language mappings, fallback, store, live switch without remount) | Biome formatting |
+| 0.25 | `tests/e2e/install-id.spec.ts` | Mutation RED: with `docs/extension-id.txt` replaced by a wrong ID, `playwright test` gave 1 failed / 1 passed (ID assertion failed). The harness could not exist earlier | 2 passed against the real build (`pnpm e2e`) | none |
+| 0.26 | `tests/build/workflows.test.ts` | No `.github/workflows`: file failed (`ENOENT scandir`) | 15 passed | Biome formatting |
+| 0.27 | `tests/unit/docs-skeleton.test.ts` | No docs: 21 failed / 21 | 21 passed | Softened a SECURITY.md sentence that claimed a UI warning not yet built |
+
+### Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run tests/unit/i18n.test.ts tests/component/i18n.test.tsx` 15 passed; `pnpm e2e` 2 passed; `tests/build/workflows.test.ts` 15 passed; `tests/unit/docs-skeleton.test.ts` 21 passed |
+| Runtime harness | Real headless Chromium (`channel: 'chromium'`) loading the built e2e extension from two temporary folders. Final run on `feat/0e3-docs`: `pnpm test` 23 files / 232 passed; `pnpm typecheck`, `pnpm lint` (73 files), `pnpm depcruise` (21 modules), `pnpm build`, `pnpm e2e`, `pnpm check:repo-policy --all`, `pnpm secretlint`, `pnpm check:deps` all exit 0. `pnpm audit --prod --audit-level high`: no known vulnerabilities. `pnpm test --coverage`: 95.4% lines |
+| Rollback boundary | Revert per slice: `src/ui/i18n/*` and tests; `playwright.config.ts`, `tests/e2e/**`, `e2e` script, `@playwright/test`; `.github/workflows/*`, `.github/dependabot.yml`, `.nvmrc`, `@vitest/coverage-v8`, engines bump; public docs and their test |
+
+### Playwright mode
+
+Headless works: `chromium.launchPersistentContext('', { channel: 'chromium', ... })` loads the extension (new headless mode). `xvfb-run` is not installed locally and is not needed. CI uses the same headless mode (no xvfb); `playwright install --with-deps chromium` runs before `pnpm e2e`. If it proves flaky on runners, switch the CI step to `xvfb-run` with a headed launch.
+
+### Pinned actions
+
+`actions/checkout` v7.0.1 `3d3c42e5...`, `pnpm/action-setup` v6.1.0 `ea17c68d...`, `actions/setup-node` v7.1.0 `949feb24...`, `actions/upload-artifact` v7.0.2 `cf430e03...`, `github/codeql-action` v4.38.3 `24c54180...` (resolved with `git ls-remote`; annotated tags use the peeled commit).
+
+### Deviations
+
+1. `src/ui/i18n/index.tsx` (not `index.ts`): the provider and hook contain JSX. `en.ts` also exports `MessageKey`. No Testing Library: the component test uses `react-dom/client` and `act` on jsdom.
+2. The settings store is not yet wired to the i18n store; wiring belongs to the first UI that renders translated text. `resolveUiLanguage` (0.21) already covers the `es*`/`en*`/other mapping.
+3. The e2e script is `wxt build --mode e2e && playwright test`; the spec copies `.output/chrome-mv3-e2e` into two temp folders. An extra spec loads `options.html` under the discovered ID.
+4. The Playwright RED is a mutation of the documented ID, since the spec cannot be written before the harness exists.
+5. Added `.nvmrc` (24) and raised `engines.node` to `>=22.18` (native type stripping for scripts); `@vitest/coverage-v8` 5.0.3 added for `pnpm test --coverage`.
+6. CI adds a Playwright browser install step and a failure-only report upload (not in the task list). CodeQL also runs on pushes to `main`.
+7. The CI "build tests" step runs `pnpm vitest run tests/build` after `pnpm build`, matching the design table.
+8. 0.28: docs only. Branch protection stays an owner action.
