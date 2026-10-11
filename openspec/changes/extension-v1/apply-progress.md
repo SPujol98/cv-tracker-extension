@@ -4,7 +4,7 @@ Cumulative state of the apply phase. Each batch merges into this file; completed
 
 ## Status
 
-- Tasks complete: 4 of 171 (0.1-0.4). Next unit: PR 0b (tasks 0.5-0.9).
+- Tasks complete: 9 of 171 (0.1-0.9). Next unit: PR 0c (tasks 0.10-0.17).
 - Mode: Strict TDD from task 0.3 onward (`strict_tdd: true`, runner `vitest`, command `pnpm test`). Tasks 0.1-0.3 follow the foundation bootstrap exception from `tasks.md` (the runner and the flag flip are created by these tasks).
 - Delivery: `auto-chain`, chain strategy `stacked-to-main`. This batch is slice 0a on branch `feat/0a-toolchain` (local only, not pushed, no PR opened).
 
@@ -87,7 +87,6 @@ The RED test (0.2) and its GREEN config flip (0.3) share one commit so the branc
 
 ### Remaining tasks
 
-- [ ] 0.5-0.9 (PR 0b: layer boundaries and source-ban plugins)
 - [ ] 0.10-0.17 (PR 0c), 0.18-0.23 (PR 0d), PR 0e, then sub-changes 1 to 7 as listed in `tasks.md`
 
 ### Workload / PR boundary
@@ -95,3 +94,79 @@ The RED test (0.2) and its GREEN config flip (0.3) share one commit so the branc
 - Mode: stacked PR slice (`auto-chain`, `stacked-to-main`), slice 0a, target `main`.
 - Boundary: starts at `main` (`cac12df`, planning commit only) and ends with the Biome base commit plus this tracking commit.
 - Review budget: 287 authored changed lines in the three code commits (271 additions, 16 deletions; lockfile excluded). Forecast was about 250; the overage is the config pin and exclusion tests, the fixtures config, and the toolchain files. Under the 400-line budget.
+
+## Batch 2: PR 0b - Layer boundaries and source-ban plugins
+
+Branch `feat/0b-boundaries`, created from `feat/0a-toolchain` (stacked-to-main). Local only, not pushed, no PR opened.
+
+### Completed tasks
+
+- [x] 0.5 Biome `src/core/**` globals override (ADR-01, ADR-23)
+- [x] 0.6 GritQL plugin: dynamic code and raw HTML sinks (SHELL-5, PRIV-4)
+- [x] 0.7 GritQL plugin: `navigator.sendBeacon` ban (PRIV-2)
+- [x] 0.8 GritQL plugin: forbidden portal strings only in the guard (PORTAL-6)
+- [x] 0.9 dependency-cruiser layer rules (ADR-01, Module Boundaries)
+
+### Commits
+
+| Commit | Tasks | Message |
+|---|---|---|
+| `6c9ca68` | 0.5 | `build(lint): forbid browser globals in src/core with a Biome override` |
+| `f0b7113` | 0.6 | `build(lint): ban new Function and raw HTML sinks with GritQL plugins` |
+| `0de8945` | 0.7 | `build(lint): ban navigator.sendBeacon with a GritQL plugin` |
+| `043e18c` | 0.8 | `build(lint): confine forbidden portal strings to the navigation guard` |
+| `c11fcda` | 0.9 | `build(deps): enforce layer boundaries with dependency-cruiser` |
+| (this commit) | tracking | `docs(openspec): record apply progress for slice 0b` |
+
+### TDD Cycle Evidence
+
+| Task | Test file | RED (observed) | GREEN (observed) | REFACTOR |
+|---|---|---|---|---|
+| 0.5 | `tests/lint-fixtures/core-globals.test.ts` | Without the override: 8 failed / 8 passed (every `src/core` case failed, every `src/background` case passed). A first harness run failed all 16 because of Biome's VCS root lookup in the temp tree; fixed with `vcs.enabled: false` before taking the RED | 16 passed | Plugin directory copied into the temp tree once the plugins existed (see 0.6) |
+| 0.6 | `tests/lint-fixtures/gritql-html.test.ts` | Without the plugins: 5 failed (all positives) / 1 passed | 6 passed. First GREEN attempt exposed a false pass: plugin paths failed to load and the load error text still contained the rule names. Fixed by moving `biome.fixtures.json` to the repo root and asserting the output never contains `during loading of plugins` | Added the load-error guard to the test |
+| 0.7 | `tests/lint-fixtures/gritql-beacon.test.ts` | 2 failed (both positives) / 1 passed | 3 passed | none |
+| 0.8 | `tests/lint-fixtures/gritql-portal.test.ts` | 3 failed (rejections) / 3 passed (the exemption and clean cases pass vacuously before the plugin exists). During GREEN the exemption cases failed twice (regex capture groups, then plugin `includes` globs without `**/`), proving they are sensitive | 6 passed | Guard files receive all three forbidden strings (appended) so the exemption is tested against each |
+| 0.9 | `tests/lint-fixtures/depcruise.test.ts` | No `.dependency-cruiser.cjs`: all 28 cases failed (`Can't open config file`). After the config, 24 failed because dependency-cruiser resolved the repo root instead of the fixture tree and then cruised zero modules | 30 passed (after the `--dir` fix, the swc parser, and two extra cases for the `portals-chrome` rule) | Conforming cases assert a non-zero module count so a silent empty run cannot pass |
+
+### Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run tests/lint-fixtures`: exit 0, 6 files, 61 tests passed (70 tests across the whole suite) |
+| Runtime harness command/scenario and exact result | Real Biome processes on fixture trees (config extending `biome.json`), real `depcruise` processes on generated source trees. `pnpm test` 7 files / 70 passed; `pnpm typecheck` exit 0; `pnpm lint` exit 0 (`Checked 20 files`); `pnpm depcruise` exit 0 (`no dependency violations found (2 modules, 1 dependencies cruised)`) |
+| Rollback boundary | `git revert` of the five slice commits: `biome.json` plugins and override, `biome-plugins/**`, `.dependency-cruiser.cjs`, `biome.fixtures.json` (moved back to `tests/lint-fixtures/`), the `depcruise` script, `@swc/core` and `dependency-cruiser` dev dependencies, the `allowBuilds` entry, and the new fixture tests |
+
+### Files changed
+
+| File | Action | What was done |
+|---|---|---|
+| `biome.json` | Modified | `overrides` entry for `src/core/**` (`style/noRestrictedGlobals` with the eight denied globals), `plugins` array with the four GritQL plugins (the portal one with a guard-exempting `includes`), two new fixture exclusions; reformatted by Biome |
+| `biome.fixtures.json` | Moved | From `tests/lint-fixtures/` to the repo root (see deviations) |
+| `biome-plugins/*.grit`, `biome-plugins/README.md` | Created | Four plugins and the decision record |
+| `.dependency-cruiser.cjs` | Created | Eleven forbidden rules from Module Boundaries |
+| `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` | Modified | `depcruise` script, exact pins `dependency-cruiser` 18.5.0 and `@swc/core` 1.16.13, `allowBuilds` for `@swc/core` set to false |
+| `tests/lint-fixtures/{core-globals,gritql-html,gritql-beacon,gritql-portal,depcruise}.test.ts` and fixture folders `core-globals/`, `gritql/`, `gritql-portal/` | Created | Tests and fixtures |
+| `tests/lint-fixtures/biome-base.test.ts` | Modified | Points at the moved `biome.fixtures.json` |
+
+### Deviations from design and tasks
+
+1. **Stdin mode replaced (0.5, 0.8).** As predicted in slice 0a, `--stdin-file-path` is unusable. Tests copy fixtures into a temp tree that mirrors `src/core`, `src/background`, `src/portals`, `tests/unit/core`, with a `biome.json` that extends the repository config (`vcs.enabled: false`) and a copy of `biome-plugins/`, then lint the real files via `--config-path`.
+2. **`biome.fixtures.json` moved to the repo root.** Biome resolves plugin paths (including inherited ones) against the directory of the loaded config, so the fixtures config must sit next to `biome-plugins/`.
+3. **GritQL covered every pattern.** No `scripts/check-ast-bans.ts` fallback was needed; the decision is recorded in `biome-plugins/README.md`. The design open question is closed.
+4. **Plugin `includes` globs need `**/`.** `!src/core/guard.ts` was silently ignored by Biome 2.5.15; `!**/src/core/guard.ts` works (recorded in the README). The exemption lives on the plugin entry, not in an override, because overrides cannot remove a plugin.
+5. **0.9 fixtures are generated, not committed trees.** The test builds each violating source tree in a temp directory from a case table instead of committing `tests/lint-fixtures/depcruise/**`. Same coverage (20 violation cases, 5 conforming cases, relative-path bypass included) with far fewer files.
+6. **`@swc/core` added (not in the task).** dependency-cruiser 18.5.0 supports TypeScript below 7 only; with TypeScript 7.0.2 it cruises zero TypeScript modules and reports "no violations". `options.parser: 'swc'` makes it work. `allowBuilds: '@swc/core': false` keeps `pnpm install` from failing on the ignored postinstall (swc ships prebuilt binaries). dependency-cruiser still prints a `missing-typescript-transpiler` notice for TypeScript 7; it is harmless and drops out when it supports TS 7.
+7. **Extra rules.** Besides the task list, rules `providers-restricted`, `portals-restricted`, `portals-chrome` (chrome allowed only in `src/portals/*/inject.ts`), and `background-restricted` encode the rest of the Module Boundaries table. The reverse direction of the providers/portals rule is its own rule name (`portals-providers-separate`).
+
+### Issues found and risks for later slices
+
+- **dependency-cruiser and TypeScript 7.** If `@swc/core` is dropped or the parser option is removed, `pnpm depcruise` silently passes with zero modules. The fixture tests catch this (module-count assertion); the real run reports its module count.
+- **Plugin vacuity.** Any future fixture test for a GritQL plugin must assert the absence of `during loading of plugins`.
+- **The 0.8 plugin matches string and template literals only.** A forbidden path built by concatenation across literals, or a regex literal, is not seen; the guard (2a) is the runtime defence.
+- **New fixture folders** still need their own `!` line in `biome.json` (added for `core-globals`, `gritql`, `gritql-portal`).
+
+### Workload / PR boundary
+
+- Mode: stacked PR slice (`auto-chain`, `stacked-to-main`), slice 0b, targets branch `feat/0a-toolchain` until PR #1 merges, then `main`.
+- Boundary: starts at the slice 0a tip (`88f5c2c`) and ends with the dependency-cruiser commit plus this tracking commit.
+- Review budget: about 299 authored changed lines in the five code commits (287 additions, 12 deletions; lockfile excluded). Under the 400-line budget.

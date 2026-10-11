@@ -162,21 +162,21 @@ Exit: `pnpm test` green with strict TDD recorded; CI, CodeQL, Dependabot, policy
 
 ### PR 0b - Layer boundaries and source-ban plugins (~300 lines)
 
-- [ ] 0.5 Biome `src/core/**` globals override (ADR-01, ADR-23)
+- [x] 0.5 Biome `src/core/**` globals override (ADR-01, ADR-23)
   - Files: `biome.json`, `tests/lint-fixtures/core-globals.test.ts`, `tests/lint-fixtures/core-globals/*.ts`
   - RED: for each of `chrome`, `browser`, `document`, `window`, `navigator`, `indexedDB`, `localStorage`, `fetch`, linting a fixture via `--stdin-file-path=src/core/x.ts` fails; the same code under `src/background/x.ts` passes.
   - Accept: test green.
-- [ ] 0.6 GritQL plugin: dynamic code and raw HTML sinks (SHELL-5, PRIV-4)
+- [x] 0.6 GritQL plugin: dynamic code and raw HTML sinks (SHELL-5, PRIV-4)
   - Files: `biome-plugins/no-new-function.grit`, `biome-plugins/no-html-sinks.grit`, `biome-plugins/README.md`, `tests/lint-fixtures/gritql-html.test.ts`, `tests/lint-fixtures/gritql/*.ts`
   - RED: positive fixtures for `new Function(...)`, `.innerHTML =`, `.outerHTML =`, `insertAdjacentHTML`, `document.write` fail; negative fixtures (for example reading `textContent`) pass.
   - Do: if the pinned Biome cannot express a pattern reliably, record that single pattern as a small TypeScript-AST check in `biome-plugins/README.md` and implement it as `scripts/check-ast-bans.ts` (decision recorded here; closes the design open question).
-- [ ] 0.7 GritQL plugin: `navigator.sendBeacon` ban (PRIV-2)
+- [x] 0.7 GritQL plugin: `navigator.sendBeacon` ban (PRIV-2)
   - Files: `biome-plugins/no-send-beacon.grit`, `tests/lint-fixtures/gritql-beacon.test.ts`, `tests/lint-fixtures/gritql/sendbeacon.*.ts`
   - RED: positive fixture fails, negative passes.
-- [ ] 0.8 GritQL plugin: forbidden portal strings only in the guard (PORTAL-6)
+- [x] 0.8 GritQL plugin: forbidden portal strings only in the guard (PORTAL-6)
   - Files: `biome-plugins/no-forbidden-portal-strings.grit`, `biome.json`, `tests/lint-fixtures/gritql-portal.test.ts`
   - RED: `/jobs-guest/`, `/job-apply/`, `runSearch` in any file fails; the same strings in `src/core/guard.ts` and `tests/unit/core/guard.test.ts` pass (path override declared now, files arrive in 2a).
-- [ ] 0.9 dependency-cruiser layer rules (ADR-01, Module Boundaries)
+- [x] 0.9 dependency-cruiser layer rules (ADR-01, Module Boundaries)
   - Files: `.dependency-cruiser.cjs`, `package.json`, `tests/lint-fixtures/depcruise.test.ts`, `tests/lint-fixtures/depcruise/**`
   - RED (one violating fixture tree per rule, each must fail): `src/core` importing `src/storage`, `src/providers`, `src/portals`, `chrome`, `dexie`, `react`, `wxt/*`; `src/providers` importing `src/portals` and the reverse; `src/ui` importing `src/providers`, `src/background`, `src/portals/*/readers`, `src/storage/**/*.worker.ts`, `src/storage/secrets`; `src/storage` importing `react`/`src/ui`; `src/shared` importing `dexie`/`src/storage`; anything importing `src/entrypoints`; relative-path bypass of a rule. A conforming fixture passes.
   - Accept: `pnpm depcruise` added and green on the skeleton.
