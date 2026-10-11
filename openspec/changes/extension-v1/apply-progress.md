@@ -4,7 +4,7 @@ Cumulative state of the apply phase. Each batch merges into this file; completed
 
 ## Status
 
-- Tasks complete: 14 of 171 (0.1-0.14). Next unit: PR 0c part 2 (tasks 0.15-0.17).
+- Tasks complete: 17 of 171 (0.1-0.17). Next unit: PR 0d (tasks 0.18-0.23).
 - Mode: Strict TDD from task 0.3 onward (`strict_tdd: true`, runner `vitest`, command `pnpm test`). Tasks 0.1-0.3 follow the foundation bootstrap exception from `tasks.md` (the runner and the flag flip are created by these tasks).
 - Delivery: `auto-chain`, chain strategy `stacked-to-main`. This batch is slice 0a on branch `feat/0a-toolchain` (local only, not pushed, no PR opened).
 
@@ -221,10 +221,59 @@ RED tests share the commit with their GREEN implementation so the branch never c
 
 ### Remaining tasks
 
-- [ ] 0.15 (check-deps), 0.16 (secretlint, plus the 0.10 case 6 test), 0.17 (hook, lint-staged, PR template) - follow-up slice
+- (done in Batch 4) 0.15, 0.16, 0.17
 - [ ] 0.18-0.23 (PR 0d), PR 0e, then sub-changes 1 to 7
 
 ### Workload / PR boundary
 
 - Mode: stacked PR slice (`auto-chain`, `stacked-to-main`), slice 0c part 1, targets `feat/0b-boundaries` until PR #2 merges.
 - Review budget: 481 authored changed lines.
+
+## Batch 4: PR 0c part 2 - Deps check, secretlint, hook, tasks 0.15-0.17
+
+Branch `feat/0c2-deps-secretlint-hook`, created from `feat/0c-repo-policy` (stacked-to-main). Local only, not pushed, no PR opened.
+
+### Completed tasks
+
+- [x] 0.15 Telemetry dependency check (PRIV-2)
+- [x] 0.16 secretlint rules (PRIV-8, PORTAL-10), including the deferred 0.10 case 6
+- [x] 0.17 Pre-commit hook, PR template, clean-room attestation (PRIV-9, PRIV-10)
+
+### Commits
+
+| Commit | Tasks | Message |
+|---|---|---|
+| `5924d2f` | 0.15 | `build(deps): fail on telemetry packages in manifest and lockfile` |
+| `6a29aeb` | 0.16 (+0.10 case 6) | `build(privacy): add secretlint rules for keys, emails, phones and national IDs` |
+| `970bd13` | 0.17 | `build(hooks): add pre-commit hook, lint-staged config and PR attestation template` |
+| (this commit) | tracking | `docs(openspec): record apply progress for slice 0c part 2` |
+
+### TDD Cycle Evidence
+
+| Task | Test file | RED (observed) | GREEN (observed) | REFACTOR |
+|---|---|---|---|---|
+| 0.15 | `tests/unit/check-deps.test.ts` | `pnpm vitest run tests/unit/check-deps.test.ts` with no script: 5 failed / 0 passed | 5 passed. First GREEN attempt failed on the real lockfile (pnpm 12 writes two YAML documents; `parse` threw); fixed with `parseAllDocuments` | Biome formatting only |
+| 0.16 | `tests/unit/secretlint-rules.test.ts`, `tests/unit/repo-policy/docs-paths.test.ts` (case 6) | No `.secretlintrc.json`: 21 failed (all, negatives included, because the missing config is an error exit) | 28 passed. Iterations on the real repo: email regex matched `pnpm@12.11.2` (fixed with an alphabetic TLD), `+1 555 010 0000` in a spec (555 area code now reserved) | Samples assembled at runtime so test files never hold a literal match |
+| 0.17 | `tests/unit/hook-config.test.ts` | No config files: 7 failed / 0 passed | 7 passed, including a real `git commit` in a temp repo: the staged synthetic key is blocked (non-zero exit, key absent from output, zero commits) and a clean change commits | none |
+
+### Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run tests/unit`: 6 files passed, 51 tests passed |
+| Runtime harness command/scenario and exact result | Real `secretlint`, `lint-staged` and `git commit` processes in temp repos. `pnpm test` 128 passed; `pnpm typecheck`, `pnpm lint` (36 files), `pnpm depcruise`, `pnpm check:repo-policy --all`, `pnpm check:deps`, `pnpm secretlint` all exit 0. The new pre-commit hook ran on the 0.17 commit itself and passed |
+| Rollback boundary | `git revert` of the three commits: `scripts/check-deps.ts`, `scripts/telemetry-denylist.json`, `.secretlintrc.json`, `.secretlintignore`, `.lintstagedrc.json`, `.github/pull_request_template.md`, the new tests and fixtures, the dev dependencies and scripts |
+
+### Deviations
+
+1. `.secretlintignore` added (not listed): ignores build output, `pnpm-lock.yaml`, and the PRIV-8 spec file (`privacy-safeguards/spec.md`), which quotes a real-looking address as its scenario input.
+2. `pnpm-workspace.yaml`: `allowBuilds` entry `simple-git-hooks: false` (its postinstall is not needed; the `prepare` script installs the hook).
+3. `helpers.ts` gained `runSecretlint`; fixtures for 0.15 are three small trees under `tests/fixtures/check-deps/` (clean, direct, transitive).
+4. Extra package scripts: `lint-staged`, `prepare`. The denylist JSON supports package names plus scopes.
+5. The reserved phone ranges are an approximation: NANP 555 area code or 555-01xx, UK Ofcom drama range 07700 900xxx, and `600 000 0xx` for Spain. National IDs cover Spanish DNI/NIE and US SSN shapes. The Spanish `[6-9]xx xxx xxx` pattern can false-positive on 9-digit spaced numbers.
+6. The tests in 0.17 run `lint-staged` and the policy script directly in the temp repo hook (not through `pnpm`), since the `pnpm` scripts only exist in this repo. The `package.json` command string is asserted separately.
+
+### Workload / PR boundary
+
+- Mode: stacked PR slice (`auto-chain`, `stacked-to-main`), slice 0c part 2, targets `feat/0c-repo-policy` until #3 merges.
+- Review budget: 436 authored changed lines (434 additions, 2 deletions; lockfile excluded), over 400. Cohesive unit (one tool per task with its tests); recommend `size:exception`.

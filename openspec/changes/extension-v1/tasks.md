@@ -200,13 +200,13 @@ Exit: `pnpm test` green with strict TDD recorded; CI, CodeQL, Dependabot, policy
   - Files: `scripts/check-repo-policy.ts`
   - Do: `--staged` reads blobs from the index (`git diff --cached --name-only -z --diff-filter=ACMR` + `git show :<path>`), honors `GIT_INDEX_FILE`, exits 0 on an empty index, scans renames.
   - Accept: test 0.12 green.
-- [ ] 0.15 Telemetry dependency check (PRIV-2)
+- [x] 0.15 Telemetry dependency check (PRIV-2)
   - Files: `scripts/check-deps.ts`, `scripts/telemetry-denylist.json`, `tests/unit/check-deps.test.ts`, `tests/fixtures/check-deps/**`
   - RED: a fixture `package.json` and lockfile containing a denylisted analytics package (direct and transitive) fail; a clean one passes. GREEN: implement and add `pnpm check:deps`.
-- [ ] 0.16 secretlint rules (PRIV-8, PORTAL-10)
+- [x] 0.16 secretlint rules (PRIV-8, PORTAL-10)
   - Files: `.secretlintrc.json`, `package.json`, `tests/unit/secretlint-rules.test.ts`
   - RED (synthetic samples only): provider key prefixes (`sk-ant-`, `sk-proj-`, `sk-` + 20 or more characters), emails outside reserved example domains, phones outside reserved test ranges, national-ID patterns are detected; reserved example values pass; output masks the match. GREEN: `preset-recommend` plus `@secretlint/secretlint-rule-pattern`; add `pnpm secretlint`.
-- [ ] 0.17 Pre-commit hook, PR template, clean-room attestation (PRIV-9, PRIV-10)
+- [x] 0.17 Pre-commit hook, PR template, clean-room attestation (PRIV-9, PRIV-10)
   - Files: `.lintstagedrc.json`, `package.json`, `.github/pull_request_template.md`, `tests/unit/hook-config.test.ts`
   - RED: `simple-git-hooks` `pre-commit` equals `pnpm lint-staged && pnpm check:repo-policy --staged`; lint-staged runs secretlint and Biome; the PR template contains the clean-room and no-personal-data checklist items and a filter-authorship line (PRIV-10).
   - Accept: test green; a real commit in a temp repo with a staged synthetic secret is blocked.
