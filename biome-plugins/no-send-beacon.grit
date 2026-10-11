@@ -1,0 +1,6 @@
+language js
+
+// PRIV-2: telemetry beacons are banned; the extension sends no analytics.
+`$_.sendBeacon($...)` as $call where {
+  register_diagnostic(span=$call, message="no-send-beacon: navigator.sendBeacon is banned (PRIV-2).", severity="error")
+}

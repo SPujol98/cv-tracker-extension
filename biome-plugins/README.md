@@ -8,6 +8,7 @@ Source-ban rules that Biome's built-in rules do not cover. Each plugin is regist
 |---|---|---|
 | `no-new-function.grit` | `new Function(...)` | SHELL-5 |
 | `no-html-sinks.grit` | `.innerHTML =`, `.outerHTML =`, `insertAdjacentHTML`, `document.write(ln)` | PRIV-4 |
+| `no-send-beacon.grit` | `navigator.sendBeacon(...)` | PRIV-2 |
 
 ## Decision record: GritQL versus the TypeScript-AST fallback
 

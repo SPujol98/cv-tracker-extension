@@ -66,5 +66,9 @@
       }
     }
   ],
-  "plugins": ["./biome-plugins/no-new-function.grit", "./biome-plugins/no-html-sinks.grit"]
+  "plugins": [
+    "./biome-plugins/no-new-function.grit",
+    "./biome-plugins/no-html-sinks.grit",
+    "./biome-plugins/no-send-beacon.grit"
+  ]
 }
