@@ -144,18 +144,18 @@ Exit: `pnpm test` green with strict TDD recorded; CI, CodeQL, Dependabot, policy
 
 ### PR 0a - Runner, strict TDD flip, Biome base (~250 lines)
 
-- [ ] 0.1 Scaffold the toolchain (SHELL-7)
+- [x] 0.1 Scaffold the toolchain (SHELL-7)
   - Files: `package.json`, `.npmrc`, `tsconfig.json`, `wxt.config.ts`, `vitest.config.ts`, `tests/setup/vitest.setup.ts`, `.gitignore`
   - Do: pnpm, exact WXT pin, strict TypeScript, Vitest with `WxtVitest()` and `fake-indexeddb/auto`, projects (node, jsdom, build, lint-fixtures), scripts `dev`, `build`, `typecheck` (`wxt prepare && tsc --noEmit`), `lint`, `format`, `test` = `vitest run`. `.gitignore` gains `.privacy-denylist.txt`, `.output/`, `.wxt/`, `coverage/`, `playwright-report/`, `test-results/`, `*.pem`, `.env*`. Other scripts from the File Changes list are added by the task that creates their target.
   - Proof of runner: `pnpm test` exits non-zero with "no test files" (observed), `pnpm typecheck` passes on the skeleton.
-- [ ] 0.2 RED: config assertion test (SHELL-7)
+- [x] 0.2 RED: config assertion test (SHELL-7)
   - Files: `tests/build/config.test.ts`, `openspec/config.yaml` (read-only), `package.json` (read-only)
   - RED: asserts `strict_tdd: true`, `testing.status: active`, `testing.runner: vitest`, `testing.test_command: "pnpm test"`, `testing.layers` all true, `testing.coverage: true`, `linter: biome`, `type_checker: tsc`, `formatter: biome`, `rules.apply.test_command`, `rules.verify.test_command: "pnpm test && pnpm e2e"`, `rules.verify.build_command: "pnpm build"`, and `package.json` `scripts.test === "vitest run"`. Fails today (current config has `strict_tdd: false`, no `runner` key).
-- [ ] 0.3 GREEN: flip strict TDD in the OpenSpec config (SHELL-7)
+- [x] 0.3 GREEN: flip strict TDD in the OpenSpec config (SHELL-7)
   - Files: `openspec/config.yaml`
   - Do: set the values above; add the new `testing.runner: vitest` key; keep `tdd_intent: true`, set `rules.apply.tdd: true`.
   - Accept: `pnpm vitest run tests/build/config.test.ts` green.
-- [ ] 0.4 RED then GREEN: Biome base rules (SHELL-5, PRIV-4)
+- [x] 0.4 RED then GREEN: Biome base rules (SHELL-5, PRIV-4)
   - Files: `biome.json`, `tests/lint-fixtures/biome-base.test.ts`, `tests/lint-fixtures/biome/eval.positive.ts`, `tests/lint-fixtures/biome/innerhtml-react.positive.tsx`, `tests/lint-fixtures/biome/clean.negative.ts`
   - RED: the test spawns Biome on each fixture; `eval("1+1")` (`noGlobalEval`) and `dangerouslySetInnerHTML` (`noDangerouslySetInnerHtml`) must fail, the negative fixture must pass. Fixture directories are excluded from the normal `pnpm lint` run and checked only by the test.
   - Accept: the lint-fixture test is green and `pnpm lint` is green on the skeleton.
