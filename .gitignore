@@ -2,3 +2,16 @@
 # Local tooling and private planning context (not published)
 .engram/
 openspec/changes/extension-v1/explore.md
+
+# Dependencies, build and test output
+node_modules/
+.output/
+.wxt/
+coverage/
+playwright-report/
+test-results/
+
+# Clean-room denylist, signing keys and environment files must never be committed
+.privacy-denylist.txt
+*.pem
+.env*
