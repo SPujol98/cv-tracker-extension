@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { afterAll, describe, expect, it } from 'vitest';
-import { cleanup, makeRepo, runPolicy, stage, TERM, write } from './helpers.ts';
+import { cleanup, makeRepo, runPolicy, runSecretlint, stage, TERM, write } from './helpers.ts';
 
 afterAll(cleanup);
 
@@ -54,5 +54,14 @@ describe('documentation-like paths are scanned', () => {
       'tests/fixtures/binary/sample.pdf': Buffer.from([0x25, 0x00, 0x03]),
     });
     expect(runPolicy(repo, ['--all']).code).toBe(1);
+  });
+});
+
+describe('personal data in documentation paths (secretlint)', () => {
+  it('a real-looking email in docs/x.md fails secretlint', () => {
+    const repo = makeRepo();
+    // Assembled at runtime so this file carries no literal address.
+    write(repo, 'docs/x.md', `contact ${['jane.doe', 'gmail.com'].join('@')}\n`);
+    expect(runSecretlint(repo, 'docs/x.md').code).toBe(1);
   });
 });
