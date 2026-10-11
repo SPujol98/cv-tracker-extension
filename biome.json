@@ -6,7 +6,12 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!tests/lint-fixtures/biome", "!tests/lint-fixtures/core-globals"]
+    "includes": [
+      "**",
+      "!tests/lint-fixtures/biome",
+      "!tests/lint-fixtures/core-globals",
+      "!tests/lint-fixtures/gritql"
+    ]
   },
   "formatter": {
     "indentStyle": "space",
@@ -60,5 +65,6 @@
         }
       }
     }
-  ]
+  ],
+  "plugins": ["./biome-plugins/no-new-function.grit", "./biome-plugins/no-html-sinks.grit"]
 }

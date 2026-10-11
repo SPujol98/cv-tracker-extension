@@ -1,0 +1,12 @@
+language js
+
+// PRIV-4: raw HTML sinks are banned. Render text through textContent or React instead.
+or {
+  `$_.innerHTML = $_`,
+  `$_.outerHTML = $_`,
+  `$_.insertAdjacentHTML($...)`,
+  `document.write($...)`,
+  `document.writeln($...)`
+} as $sink where {
+  register_diagnostic(span=$sink, message="no-html-sinks: raw HTML sinks (innerHTML, outerHTML, insertAdjacentHTML, document.write) are banned.", severity="error")
+}

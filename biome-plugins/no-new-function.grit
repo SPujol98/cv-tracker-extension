@@ -1,0 +1,6 @@
+language js
+
+// SHELL-5: dynamic code construction is banned (the extension CSP also forbids it).
+`new Function($...)` as $call where {
+  register_diagnostic(span=$call, message="no-new-function: new Function() builds code from strings and is banned.", severity="error")
+}

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -28,6 +28,8 @@ beforeAll(() => {
     join(work, 'biome.json'),
     JSON.stringify({ extends: [join(root, 'biome.json')], vcs: { enabled: false } }),
   );
+  // Plugin paths in the extended config resolve against the temporary tree.
+  cpSync(join(root, 'biome-plugins'), join(work, 'biome-plugins'), { recursive: true });
   for (const layer of ['core', 'background']) {
     mkdirSync(join(work, 'src', layer), { recursive: true });
     for (const name of globals) {
