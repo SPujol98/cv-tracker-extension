@@ -4,7 +4,7 @@ Cumulative state of the apply phase. Each batch merges into this file; completed
 
 ## Status
 
-- Tasks complete: 17 of 171 (0.1-0.17). Next unit: PR 0d (tasks 0.18-0.23).
+- Tasks complete: 20 of 171 (0.1-0.20). Next unit: PR 0d part 2 (tasks 0.21-0.23), branch `feat/0d2-settings-router-alarms` stacked on `feat/0d-manifest-router`.
 - Mode: Strict TDD from task 0.3 onward (`strict_tdd: true`, runner `vitest`, command `pnpm test`). Tasks 0.1-0.3 follow the foundation bootstrap exception from `tasks.md` (the runner and the flag flip are created by these tasks).
 - Delivery: `auto-chain`, chain strategy `stacked-to-main`. This batch is slice 0a on branch `feat/0a-toolchain` (local only, not pushed, no PR opened).
 
@@ -277,3 +277,62 @@ Branch `feat/0c2-deps-secretlint-hook`, created from `feat/0c-repo-policy` (stac
 
 - Mode: stacked PR slice (`auto-chain`, `stacked-to-main`), slice 0c part 2, targets `feat/0c-repo-policy` until #3 merges.
 - Review budget: 436 authored changed lines (434 additions, 2 deletions; lockfile excluded), over 400. Cohesive unit (one tool per task with its tests); recommend `size:exception`.
+
+## Batch 5: PR 0d part 1 - Manifest, entrypoint stubs, extension key, tasks 0.18-0.20
+
+Branch `feat/0d-manifest-router`, created from `feat/0c2b-hook-template` (stacked-to-main). Local only, not pushed, no PR opened. Stopped at a clean boundary after 0.20: the slice is 399 authored lines (397 additions, 2 deletions; lockfile excluded), so 0.21-0.23 become a follow-up slice.
+
+### Completed tasks
+
+- [x] 0.18 RED: manifest build test with the optional-permission assertion (SHELL-1/2/3/5, A1)
+- [x] 0.19 GREEN: manifest generation and entrypoint stubs
+- [x] 0.20 Extension key generation and stable ID (SHELL-2)
+
+### Commits
+
+| Commit | Tasks | Message |
+|---|---|---|
+| `85376d4` | 0.18, 0.19 | `build(manifest): generate Contract L manifest and entrypoint stubs with build tests` |
+| `493c25f` | 0.20 | `feat(shell): pin extension ID with a generated public key and derive it in tests` |
+| (this commit) | tracking | `docs(openspec): record apply progress for slice 0d part 1` |
+
+### TDD Cycle Evidence
+
+| Task | Test file | RED (observed) | GREEN (observed) | REFACTOR |
+|---|---|---|---|---|
+| 0.18 | `tests/build/manifest.test.ts`, `tests/build/manifest-rules.ts`, `tests/build/fixtures/manifest-*.json` | Against the bare skeleton: 2 failed / 5 passed. Failed: Contract L rules (permissions, optional permissions, popup, side panel, command all missing) and the pages check (no `options_ui`). The sentinel/fake-provider scan passes vacuously on a skeleton | see 0.19 | none |
+| 0.19 | same | see 0.18 | 7 passed after `wxt.config.ts` manifest, three entrypoints, locales, E2E define | `jsx: react-jsx` added to tsconfig after `pnpm typecheck` flagged the TSX stubs |
+| 0.20 | `tests/unit/extension-id.test.ts` and the key assertion in `manifest.test.ts` | Missing module `src/core/extensionId.ts`: file failed to load, no tests. Key assertion with the key removed from `wxt.config.ts`: 1 failed / 7 passed | 3 passed (synthetic vector; expected ID computed independently with `sha256sum`); manifest test 8 passed | Fixed a `noUncheckedIndexedAccess` typecheck error in the test |
+
+### Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run tests/build/manifest.test.ts`: exit 0, 8 passed. `tests/unit/extension-id.test.ts`: 3 passed |
+| Runtime harness command/scenario and exact result | Real `wxt build` inside the test (beforeAll, always rebuilds) and file scan of `.output/chrome-mv3`. `pnpm test` 16 files / 139 passed; `pnpm typecheck`, `pnpm lint` (53 files), `pnpm depcruise` (9 modules), `pnpm build`, `pnpm check:repo-policy --all`, `pnpm secretlint`, `pnpm check:deps` all exit 0. `pnpm build:e2e` builds to `.output/chrome-mv3-e2e` |
+| Rollback boundary | `git revert` of the two commits: `wxt.config.ts`, `src/entrypoints/**`, `public/_locales/**`, `src/env.d.ts`, `src/core/extensionId.ts`, `scripts/gen-extension-key.ts`, `docs/extension-id.txt`, the manifest and ID tests, and the new dependencies (react, react-dom, zod, @wxt-dev/module-react, @types/react, @types/react-dom) |
+
+### Extension ID
+
+`gdbagkohkkddjlfgjipednbgopalegpp` (documented in `docs/extension-id.txt`). The private key was generated once at `~/.config/cv-tracker-extension/extension-key.pem` (directory 700, file 600), outside the repository; it was never printed. The owner must back it up outside this machine. `*.pem` is gitignored.
+
+### Deviations
+
+1. Dependencies added: `react`, `react-dom`, `zod` (runtime), `@wxt-dev/module-react`, `@types/react`, `@types/react-dom` (dev), all exact pins. Task 0.19 requires the React module and `z.config`, but no earlier task installed them.
+2. `publicDir: 'public'` in `wxt.config.ts`: WXT defaults to `src/public`, while the task lists `public/_locales/**` at the repository root.
+3. Manifest rules live in a pure function `tests/build/manifest-rules.ts` (not listed) so the negative fixtures can prove each failure message without building.
+4. The manifest test rebuilds with `pnpm build` in `beforeAll` (180 s timeout) instead of requiring a prior build, so a stale `.output` cannot give a false pass. It also writes into `.output/chrome-mv3`.
+5. `src/env.d.ts` declares `ImportMetaEnv.E2E`; `tsconfig.json` gained `jsx: react-jsx`.
+6. Manifest `name` is the placeholder `CV Tracker (placeholder name)` through `__MSG_extName__` (open product item, finalize before 7-6). The default suggested shortcut `Alt+Shift+A` is a placeholder.
+7. `docs/extension-id.txt` is written by the script. The public key is pasted into `wxt.config.ts` by hand from the script output (the script prints it).
+8. The script refuses to overwrite an existing key and refuses a path inside the repository.
+
+### Remaining tasks
+
+- [ ] 0.21 Settings module skeleton, 0.22 typed commands and sender policy, 0.23 background skeleton, `ensureAlarms`, storage access level (follow-up slice)
+- [ ] PR 0e, then sub-changes 1 to 7
+
+### Workload / PR boundary
+
+- Mode: stacked PR slice (`auto-chain`, `stacked-to-main`), slice 0d part 1, targets `feat/0c2b-hook-template` until #5 merges.
+- Review budget: 399 authored changed lines, under 400.
