@@ -1,4 +1,8 @@
 import { defineBackground } from 'wxt/utils/define-background';
+import { z } from 'zod';
 
-// Skeleton so `wxt prepare` finds an entrypoint. The router and alarms arrive with the manifest slice.
+// Zod v4 must never attempt `new Function` (SHELL-5): force the interpreted parser path.
+z.config({ jitless: true });
+
+// Skeleton. The router and the alarm reconciliation arrive in tasks 0.22 and 0.23.
 export default defineBackground(() => {});

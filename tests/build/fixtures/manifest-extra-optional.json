@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "permissions": ["storage", "alarms", "scripting", "activeTab", "sidePanel"],
+  "optional_permissions": ["notifications", "webRequest", "history"],
+  "action": { "default_popup": "popup.html" },
+  "side_panel": { "default_path": "sidepanel.html" },
+  "commands": { "analyze-page": { "description": "Analyze this page" } },
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'self'" },
+  "minimum_chrome_version": "116"
+}

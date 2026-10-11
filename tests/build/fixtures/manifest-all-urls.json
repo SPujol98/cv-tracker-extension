@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "permissions": ["storage", "alarms", "scripting", "activeTab", "sidePanel", "unlimitedStorage"],
+  "optional_permissions": ["notifications", "webRequest"],
+  "host_permissions": ["<all_urls>"],
+  "optional_host_permissions": ["*://*/*"],
+  "content_scripts": [{ "matches": ["<all_urls>"], "js": ["x.js"] }],
+  "action": { "default_popup": "popup.html" },
+  "side_panel": { "default_path": "sidepanel.html" },
+  "commands": { "analyze-page": { "description": "Analyze this page" } },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'unsafe-eval' https://cdn.example.com"
+  },
+  "minimum_chrome_version": "116"
+}
