@@ -225,13 +225,13 @@ Exit: `pnpm test` green with strict TDD recorded; CI, CodeQL, Dependabot, policy
   - RED: `deriveExtensionId(publicKeyDer)` returns the documented ID for a known synthetic key vector.
   - Do: the script generates an RSA-2048 pair once (owner-run, local); only the public key is committed as `manifest.key`; the private key is written outside the repository and is gitignored (`*.pem`). Owner action: run the script and commit the public key and the documented ID.
   - Accept: manifest test key and ID assertions green.
-- [ ] 0.21 Settings module skeleton (ADR-11, SHELL-8)
+- [x] 0.21 Settings module skeleton (ADR-11, SHELL-8)
   - Files: `src/storage/settings.ts`, `src/core/schemas/settings.ts`, `tests/integration/settings.test.ts`
   - RED: defaults for `uiLanguage`, `outputLanguage` (= uiLanguage), `notificationsEnabled`; unknown stored keys are stripped; `onChanged` notifies; writes validate with Zod; later keys are added additively (provider/keyStatus in 3, tos/scan in 6, csvMappings/updateCheck in 7). Uses the WXT fake-browser.
-- [ ] 0.22 RED then GREEN: typed commands skeleton and sender policy (ADR-16, SHELL-4)
+- [x] 0.22 RED then GREEN: typed commands skeleton and sender policy (ADR-16, SHELL-4)
   - Files: `src/shared/messaging/commands.ts`, `src/shared/messaging/client.ts`, `src/background/router.ts`, `src/background/senderPolicy.ts`, `tests/integration/router.test.ts`
   - RED: a message with a foreign `sender.id` is rejected; a sender whose `sender.tab.url` is a web URL is rejected for every privileged command; a sender URL outside `popup.html`, `sidepanel.html`, `options.html` is rejected; an unknown command or malformed payload fails Zod validation; no `externally_connectable` exists. GREEN: discriminated-union `Command` (empty plus a `ping` used by the test), sender policy.
-- [ ] 0.23 RED then GREEN: background skeleton, `ensureAlarms`, storage access level (SHELL-4, ADR-03, ADR-11; S6 follow-up)
+- [x] 0.23 RED then GREEN: background skeleton, `ensureAlarms`, storage access level (SHELL-4, ADR-03, ADR-11; S6 follow-up)
   - Files: `src/background/alarms.ts`, `src/entrypoints/background.ts`, `tests/integration/alarms.test.ts`
   - RED (fake-browser): after start there are no alarms by default; `ensureAlarms` is idempotent and reconciles on `storage.onChanged`; the worker calls `chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' })` at every start.
   - Note: revisit after the S6 verdict (1.9); if `setAccessLevel` is unsupported at `minimum_chrome_version`, either raise the version or keep only the reader-bundle build test (4.10).

@@ -4,7 +4,7 @@ Cumulative state of the apply phase. Each batch merges into this file; completed
 
 ## Status
 
-- Tasks complete: 20 of 171 (0.1-0.20). Next unit: PR 0d part 2 (tasks 0.21-0.23), branch `feat/0d2-settings-router-alarms` stacked on `feat/0d-manifest-router`.
+- Tasks complete: 23 of 171 (0.1-0.23). Next unit: PR 0e (tasks 0.24 onward).
 - Mode: Strict TDD from task 0.3 onward (`strict_tdd: true`, runner `vitest`, command `pnpm test`). Tasks 0.1-0.3 follow the foundation bootstrap exception from `tasks.md` (the runner and the flag flip are created by these tasks).
 - Delivery: `auto-chain`, chain strategy `stacked-to-main`. This batch is slice 0a on branch `feat/0a-toolchain` (local only, not pushed, no PR opened).
 
@@ -336,3 +336,60 @@ Branch `feat/0d-manifest-router`, created from `feat/0c2b-hook-template` (stacke
 
 - Mode: stacked PR slice (`auto-chain`, `stacked-to-main`), slice 0d part 1, targets `feat/0c2b-hook-template` until #5 merges.
 - Review budget: 399 authored changed lines, under 400.
+
+## Batch 6: PR 0d part 2 - Settings, router, alarms, tasks 0.21-0.23
+
+Branch `feat/0d2-settings-router-alarms`, created from `feat/0d-manifest-router` (stacked-to-main). Local only, not pushed, no PR opened. Tasks complete: 23 of 171 (0.1-0.23); PR 0d is complete.
+
+### Completed tasks
+
+- [x] 0.21 Settings module skeleton (ADR-11, SHELL-8)
+- [x] 0.22 Typed commands skeleton and sender policy (ADR-16, SHELL-4)
+- [x] 0.23 Background skeleton, `ensureAlarms`, storage access level (SHELL-4, ADR-03, ADR-11)
+
+### Commits
+
+| Commit | Tasks | Message |
+|---|---|---|
+| `4e35538` | 0.21 | `feat(storage): add Zod-validated settings module with change notifications` |
+| `ace85b7` | 0.22 | `feat(messaging): add typed commands, sender policy and message router` |
+| `2c95d30` | 0.23 | `feat(background): reconcile alarms idempotently and restrict storage access level` |
+| (this commit) | tracking | `docs(openspec): record apply progress for slice 0d part 2` |
+
+### TDD Cycle Evidence
+
+| Task | Test file | RED (observed) | GREEN (observed) | REFACTOR |
+|---|---|---|---|---|
+| 0.21 | `tests/integration/settings.test.ts` | Missing `src/core/schemas/settings.ts`: file failed to load, no tests | 13 passed | Biome formatting |
+| 0.22 | `tests/integration/router.test.ts` | Missing `src/background/router.ts`: file failed to load, no tests | 20 passed; client test added afterwards (21); typecheck fix for `mockResolvedValueOnce` | `ErrorCode` type simplified |
+| 0.23 | `tests/integration/alarms.test.ts` | Missing `src/background/alarms.ts`: file failed to load, no tests | 8 passed after stubbing `i18n.getUILanguage` (fake-browser does not implement it) | none |
+
+RED tests share a commit with their GREEN code so no branch commit carries a failing test.
+
+### Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run tests/integration`: 3 files, 42 tests passed |
+| Runtime harness command/scenario and exact result | WXT fake-browser (storage, alarms, runtime). `pnpm test` 19 files / 181 passed; `pnpm typecheck`, `pnpm lint` (63 files), `pnpm depcruise` (17 modules, 20 dependencies), `pnpm build`, `pnpm check:repo-policy --all`, `pnpm secretlint`, `pnpm check:deps` all exit 0 |
+| Rollback boundary | `git revert` of the three commits: `src/core/schemas/settings.ts`, `src/storage/settings.ts`, `src/shared/messaging/*`, `src/background/{router,senderPolicy,alarms}.ts`, `src/entrypoints/background.ts` wiring, `tests/integration/*` |
+
+### Deviations
+
+1. `ALARM_DEFS` is empty: the base settings have no schedule or update-check keys (they arrive in sub-changes 6 and 7). `ensureAlarms` and `startAlarms` take an injectable definition list, and the tests gate a fake `beacon-tick` on `notificationsEnabled`. SHELL-4 "alarms re-registered after restart" is proven with that injected definition.
+2. WXT forbids an async `main`, so the entrypoint registers the router synchronously and runs the access-level call plus `startAlarms()` in a detached async block. The tests use `vi.waitFor`.
+3. `setAccessLevel` failure or absence is swallowed (S6 unresolved; the reader-bundle build test is the fallback). Revisit after spike 1.9.
+4. The worker's `setAccessLevel` is cast through a local type because the WXT types may not declare it.
+5. `uiLanguage` default comes from `browser.i18n.getUILanguage()` in `src/storage/settings.ts`; the core exposes the pure `resolveUiLanguage`. A corrupt stored object falls back to defaults on read.
+6. `outputLanguage` is materialized on first write, so later `uiLanguage` changes do not move it.
+7. The `externally_connectable` absence is asserted against the source `wxt.config.ts` manifest object (the built manifest is already covered by the manifest build test).
+8. `commands.ts` also exports `responseSchema`, `ERROR_CODES` and the result types so the client validates replies.
+
+### Workload / PR boundary
+
+- Mode: stacked PR slice (`auto-chain`, `stacked-to-main`), slice 0d part 2, targets `feat/0d-manifest-router` until #6 merges.
+- Review budget: 583 authored changed lines (581 additions, 2 deletions; lockfile excluded, no tracking-file lines counted), 164 of them source and 419 tests. Over 400; cohesive (three small modules with their tests). Recommend `size:exception` or splitting 0.23 into its own PR.
+
+### Remaining tasks
+
+- [ ] PR 0e (0.24-0.28), then sub-changes 1 to 7
