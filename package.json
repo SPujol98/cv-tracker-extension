@@ -23,10 +23,12 @@
     "check:repo-policy": "node scripts/check-repo-policy.ts",
     "test": "vitest run",
     "prepare": "simple-git-hooks",
-    "lint-staged": "lint-staged"
+    "lint-staged": "lint-staged",
+    "e2e": "wxt build --mode e2e && playwright test"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
+    "@playwright/test": "1.64.0",
     "@secretlint/secretlint-rule-pattern": "13.0.7",
     "@secretlint/secretlint-rule-preset-recommend": "13.0.7",
     "@swc/core": "1.16.13",
