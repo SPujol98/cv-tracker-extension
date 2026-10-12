@@ -238,21 +238,21 @@ Exit: `pnpm test` green with strict TDD recorded; CI, CodeQL, Dependabot, policy
 
 ### PR 0e - i18n, Playwright, CI, docs skeleton (~300 lines)
 
-- [ ] 0.24 i18n infrastructure, EN + ES (SHELL-8, ADR-19)
+- [x] 0.24 i18n infrastructure, EN + ES (SHELL-8, ADR-19)
   - Files: `src/ui/i18n/en.ts`, `src/ui/i18n/es.ts`, `src/ui/i18n/index.ts`, `tests/unit/i18n.test.ts`
   - RED: `es` typed as `Record<keyof typeof en, string>` (compile-time) plus a runtime key-parity test; default language from `chrome.i18n.getUILanguage()` (`es*` to `es`, `en*` to `en`, `ca` or other to `en`); a missing key falls back to English; a live language switch updates without reload (component test with a trivial consumer).
-- [ ] 0.25 Playwright extension loading and stable ID (SHELL-2)
+- [x] 0.25 Playwright extension loading and stable ID (SHELL-2)
   - Files: `playwright.config.ts`, `tests/e2e/fixtures/extension.ts`, `tests/e2e/install-id.spec.ts`, `package.json`
   - Do: `chromium.launchPersistentContext('', { channel: 'chromium', args: [--disable-extensions-except, --load-extension] })`; verify this loads the extension headless, otherwise run headed under `xvfb-run` and record which one CI uses. Add `pnpm e2e`.
   - RED: the spec loads the built extension from two different folders and expects the ID to equal `docs/extension-id.txt` both times.
-- [ ] 0.26 CI, CodeQL, Dependabot (SHELL-7; ADR-27)
+- [x] 0.26 CI, CodeQL, Dependabot (SHELL-7; ADR-27)
   - Files: `.github/workflows/ci.yml`, `.github/workflows/codeql.yml`, `.github/dependabot.yml`, `tests/build/workflows.test.ts`
   - RED: every `uses:` is pinned to a 40-hex commit SHA; no `pull_request_target`; `ci.yml` runs frozen install, typecheck, lint, depcruise, check:deps, check:repo-policy --all, secretlint, `pnpm audit --prod --audit-level high`, test with coverage, build, build tests, e2e, in that order, with `permissions: contents: read`; `codeql.yml` has `security-events: write` and a weekly schedule; Dependabot covers `npm` and `github-actions` weekly with minor and patch grouped.
-- [ ] 0.27 Public docs skeleton (SHELL-9, PRIV-6 skeleton, ADR-27)
+- [x] 0.27 Public docs skeleton (SHELL-9, PRIV-6 skeleton, ADR-27)
   - Files: `LICENSE`, `README.md`, `PRIVACY.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`, `docs/architecture.md`, `tests/unit/docs-skeleton.test.ts`
   - RED: files exist; `LICENSE` is MIT; `SECURITY.md` names private vulnerability reporting through GitHub security advisories; `CHANGELOG.md` is Keep a Changelog; `docs/architecture.md` contains a Mermaid block; no process residue words ("Revision 2", "validator fix").
   - Do: `PRIVACY.md`/`README.md` carry headed placeholders for the PRIV-6 statements that 6 and 7 complete.
-- [ ] 0.28 Branch protection and merge gates (SHELL-7) - owner action
+- [ ] 0.28 Branch protection and merge gates (SHELL-7) - owner action (documentation done in `CONTRIBUTING.md` under "Required status checks"; enabling branch protection on `main` remains an owner action)
   - Files: `CONTRIBUTING.md`
   - Do: document the required status checks (all CI steps, CodeQL) and ask the owner to enable branch protection on `main`. Record the confirmation in the PR description. No repository setting is changed by the agent.
 
