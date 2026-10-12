@@ -1,0 +1,7 @@
+{
+  "extName": { "message": "CV Tracker (placeholder name)" },
+  "extDescription": {
+    "message": "Analyze job offers with your own LLM API key and track applications locally."
+  },
+  "commandAnalyzePage": { "message": "Analyze this page" }
+}

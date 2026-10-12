@@ -213,14 +213,14 @@ Exit: `pnpm test` green with strict TDD recorded; CI, CodeQL, Dependabot, policy
 
 ### PR 0d - Manifest, key, settings, router, alarms skeleton (~350 lines)
 
-- [ ] 0.18 RED: manifest build test including the optional-permission assertion (SHELL-1, SHELL-2, SHELL-3, SHELL-5; amendment A1)
+- [x] 0.18 RED: manifest build test including the optional-permission assertion (SHELL-1, SHELL-2, SHELL-3, SHELL-5; amendment A1)
   - Files: `tests/build/manifest.test.ts`, `tests/build/fixtures/manifest-*.json`
   - RED: on `.output/chrome-mv3/manifest.json` assert `permissions` is exactly `storage, alarms, scripting, activeTab, sidePanel`; `optional_permissions` is exactly `notifications, webRequest` (A1: any other optional permission fails, naming it; negative fixture manifests prove the failure message); optional host permissions are a subset of the portal, provider and release-check origins and equal the set allowed for the current sub-change (an `ORIGINS_BY_SUBCHANGE` table: 0 none, 3 providers, 4 + LinkedIn, 7 + InfoJobs and `api.github.com`); no `host_permissions`, no `<all_urls>`/`*://*/*`, no `content_scripts`, no `unlimitedStorage`, no `contextMenus`; CSP has no `unsafe-eval` or remote sources; `key` present and derived ID equals `docs/extension-id.txt`; `action.default_popup`, `side_panel.default_path`, `commands.analyze-page`, `minimum_chrome_version` 116; build output has no `__cvt_e2e_override__` and no `"fake"` provider id.
-- [ ] 0.19 GREEN: manifest generation and entrypoint stubs (SHELL-1, SHELL-3, SHELL-5)
+- [x] 0.19 GREEN: manifest generation and entrypoint stubs (SHELL-1, SHELL-3, SHELL-5)
   - Files: `wxt.config.ts`, `src/entrypoints/background.ts`, `src/entrypoints/popup/index.html`, `src/entrypoints/popup/main.tsx`, `src/entrypoints/sidepanel/index.html`, `src/entrypoints/sidepanel/main.tsx`, `src/entrypoints/options/index.html`, `src/entrypoints/options/main.tsx`, `public/_locales/en/messages.json`, `public/_locales/es/messages.json`
   - Do: Contract L required permissions only, React module, the build-time `E2E` define (false in production, true in `build:e2e`), `z.config({ jitless: true })` at startup; add `build:e2e` and `zip` scripts.
   - Accept: `pnpm build && pnpm vitest run tests/build/manifest.test.ts` green except the key and ID assertions (closed by 0.20).
-- [ ] 0.20 Extension key generation and stable ID (SHELL-2; S6 dependency)
+- [x] 0.20 Extension key generation and stable ID (SHELL-2; S6 dependency)
   - Files: `scripts/gen-extension-key.ts`, `src/core/extensionId.ts`, `tests/unit/extension-id.test.ts`, `docs/extension-id.txt`, `wxt.config.ts`
   - RED: `deriveExtensionId(publicKeyDer)` returns the documented ID for a known synthetic key vector.
   - Do: the script generates an RSA-2048 pair once (owner-run, local); only the public key is committed as `manifest.key`; the private key is written outside the repository and is gitignored (`*.pem`). Owner action: run the script and commit the public key and the documented ID.

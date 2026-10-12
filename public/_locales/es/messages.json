@@ -1,0 +1,7 @@
+{
+  "extName": { "message": "CV Tracker (nombre provisional)" },
+  "extDescription": {
+    "message": "Analiza ofertas de empleo con tu propia clave de API de LLM y gestiona tus candidaturas en local."
+  },
+  "commandAnalyzePage": { "message": "Analizar esta página" }
+}
