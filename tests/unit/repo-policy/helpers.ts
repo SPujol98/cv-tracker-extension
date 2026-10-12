@@ -75,3 +75,25 @@ export function runPolicy(cwd: string, args: string[], env: Record<string, strin
   });
   return { code: result.status, stdout: result.stdout, stderr: result.stderr };
 }
+
+export const secretlintConfig = join(projectRoot, '.secretlintrc.json');
+
+/** Runs the repository secretlint configuration over one file in a throwaway directory. */
+export function runSecretlint(dir: string, file: string): Run {
+  const result = spawnSync(
+    'pnpm',
+    [
+      '--dir',
+      projectRoot,
+      'exec',
+      'secretlint',
+      '--no-color',
+      '--secretlintrc',
+      secretlintConfig,
+      '--no-gitignore',
+      join(dir, file),
+    ],
+    { cwd: dir, env: cleanEnv(), encoding: 'utf8' },
+  );
+  return { code: result.status, stdout: result.stdout, stderr: result.stderr };
+}

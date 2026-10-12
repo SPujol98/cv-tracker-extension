@@ -3,3 +3,4 @@ savePrefix: ''
 engineStrict: true
 allowBuilds:
   '@swc/core': false
+  simple-git-hooks: false

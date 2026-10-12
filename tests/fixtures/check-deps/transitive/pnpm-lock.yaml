@@ -1,0 +1,17 @@
+lockfileVersion: '9.0'
+importers:
+  .:
+    dependencies:
+      some-lib:
+        specifier: 1.0.0
+        version: 1.0.0
+packages:
+  '@sentry/browser@8.0.0':
+    resolution: { integrity: sha512-synthetic }
+  some-lib@1.0.0:
+    resolution: { integrity: sha512-synthetic }
+snapshots:
+  '@sentry/browser@8.0.0': {}
+  some-lib@1.0.0:
+    dependencies:
+      '@sentry/browser': 8.0.0

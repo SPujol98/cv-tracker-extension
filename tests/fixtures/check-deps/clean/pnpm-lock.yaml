@@ -1,0 +1,12 @@
+lockfileVersion: '9.0'
+importers:
+  .:
+    dependencies:
+      zod:
+        specifier: 3.0.0
+        version: 3.0.0
+packages:
+  zod@3.0.0:
+    resolution: { integrity: sha512-synthetic }
+snapshots:
+  zod@3.0.0: {}

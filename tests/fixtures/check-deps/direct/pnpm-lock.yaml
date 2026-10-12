@@ -1,0 +1,18 @@
+lockfileVersion: '9.0'
+importers:
+  .:
+    dependencies:
+      mixpanel-browser:
+        specifier: 2.0.0
+        version: 2.0.0
+      zod:
+        specifier: 3.0.0
+        version: 3.0.0
+packages:
+  mixpanel-browser@2.0.0:
+    resolution: { integrity: sha512-synthetic }
+  zod@3.0.0:
+    resolution: { integrity: sha512-synthetic }
+snapshots:
+  mixpanel-browser@2.0.0: {}
+  zod@3.0.0: {}
