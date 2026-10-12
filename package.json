@@ -16,6 +16,7 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "depcruise": "depcruise --config .dependency-cruiser.cjs src",
+    "check:repo-policy": "node scripts/check-repo-policy.ts",
     "test": "vitest run"
   },
   "devDependencies": {

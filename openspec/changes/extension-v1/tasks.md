@@ -183,20 +183,20 @@ Exit: `pnpm test` green with strict TDD recorded; CI, CodeQL, Dependabot, policy
 
 ### PR 0c - Repo policy, deps check, secretlint, hook (~400 lines)
 
-- [ ] 0.10 RED: Threat Matrix, documentation-like paths (PRIV-7, PRIV-8, PRIV-9, PORTAL-10)
+- [x] 0.10 RED: Threat Matrix, documentation-like paths (PRIV-7, PRIV-8, PRIV-9, PORTAL-10) (cases 1-5; case 6, the secretlint email check, moves to 0.16 where secretlint exists)
   - Files: `tests/unit/repo-policy/docs-paths.test.ts`, `tests/unit/repo-policy/helpers.ts`
   - RED (6): a denylisted term in `docs/x.md` fails; in `tests/fixtures/portals/x.html` fails; in an extensionless file fails; a `.pdf` outside `tests/fixtures/binary/` fails; an allowlisted binary under `tests/fixtures/binary/` passes; a real-looking email in `docs/x.md` fails secretlint. Tests build throwaway git repos in a temp directory.
-- [ ] 0.11 RED: Threat Matrix, git repository selection
+- [x] 0.11 RED: Threat Matrix, git repository selection
   - Files: `tests/unit/repo-policy/repo-selection.test.ts`
   - RED (4): running from `src/` scans the whole staged set; a linked worktree uses its own index; a missing denylist passes locally; a tracked or staged `.privacy-denylist.txt` fails.
-- [ ] 0.12 RED: Threat Matrix, commit state
+- [x] 0.12 RED: Threat Matrix, commit state
   - Files: `tests/unit/repo-policy/commit-state.test.ts`
   - RED (5): a staged secret with a clean worktree fails; a clean staged blob with a dirty worktree passes; the `GIT_INDEX_FILE` override is honored; an empty index exits 0; renamed files are scanned.
-- [ ] 0.13 GREEN: repo policy check, all-files mode (PRIV-7, PRIV-8, PRIV-9)
+- [x] 0.13 GREEN: repo policy check, all-files mode (PRIV-7, PRIV-8, PRIV-9)
   - Files: `scripts/check-repo-policy.ts`, `tests/fixtures/binary/ALLOWLIST`, `package.json`
   - Do: root from `git rev-parse --show-toplevel`; no path-based exemptions; text-vs-binary by NUL byte in the first 8 KB; plain local denylist and hashed `PRIVACY_DENYLIST_SHA256` mode (skipped with a notice on forks); fail when the denylist is tracked or staged; vendored-extension block (tracked path segment `extension`, any tracked `manifest.json` outside build output; the repository's own name is not a path segment); binary policy (`.pdf`, `.docx`, `.xlsx`, `.zip` only under `tests/fixtures/binary/` with an allowlisted hash). `pnpm check:repo-policy --all`.
   - Accept: tests 0.10 and 0.11 green.
-- [ ] 0.14 GREEN: repo policy check, staged mode (PRIV-9)
+- [x] 0.14 GREEN: repo policy check, staged mode (PRIV-9)
   - Files: `scripts/check-repo-policy.ts`
   - Do: `--staged` reads blobs from the index (`git diff --cached --name-only -z --diff-filter=ACMR` + `git show :<path>`), honors `GIT_INDEX_FILE`, exits 0 on an empty index, scans renames.
   - Accept: test 0.12 green.

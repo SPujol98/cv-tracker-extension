@@ -4,7 +4,7 @@ Cumulative state of the apply phase. Each batch merges into this file; completed
 
 ## Status
 
-- Tasks complete: 9 of 171 (0.1-0.9). Next unit: PR 0c (tasks 0.10-0.17).
+- Tasks complete: 14 of 171 (0.1-0.14). Next unit: PR 0c part 2 (tasks 0.15-0.17).
 - Mode: Strict TDD from task 0.3 onward (`strict_tdd: true`, runner `vitest`, command `pnpm test`). Tasks 0.1-0.3 follow the foundation bootstrap exception from `tasks.md` (the runner and the flag flip are created by these tasks).
 - Delivery: `auto-chain`, chain strategy `stacked-to-main`. This batch is slice 0a on branch `feat/0a-toolchain` (local only, not pushed, no PR opened).
 
@@ -170,3 +170,61 @@ Branch `feat/0b-boundaries`, created from `feat/0a-toolchain` (stacked-to-main).
 - Mode: stacked PR slice (`auto-chain`, `stacked-to-main`), slice 0b, targets branch `feat/0a-toolchain` until PR #1 merges, then `main`.
 - Boundary: starts at the slice 0a tip (`88f5c2c`) and ends with the dependency-cruiser commit plus this tracking commit.
 - Review budget: about 299 authored changed lines in the five code commits (287 additions, 12 deletions; lockfile excluded). Under the 400-line budget.
+
+## Batch 3: PR 0c (partial) - Repo policy check, tasks 0.10-0.14
+
+Branch `feat/0c-repo-policy`, created from `feat/0b-boundaries` (stacked-to-main). Local only, not pushed, no PR opened. The slice stopped at a clean task boundary after 0.14 because tasks 0.10-0.14 alone are 481 authored lines (over the 400 budget). Tasks 0.15-0.17 are left for a follow-up slice (suggested name `feat/0c2-deps-secretlint-hook`, stacked on this branch).
+
+### Completed tasks
+
+- [x] 0.10 RED: documentation-like paths (cases 1-5; case 6 moves to 0.16)
+- [x] 0.11 RED: git repository selection
+- [x] 0.12 RED: commit state
+- [x] 0.13 GREEN: repo policy check, all-files mode
+- [x] 0.14 GREEN: repo policy check, staged mode
+
+### Commits
+
+| Commit | Tasks | Message |
+|---|---|---|
+| `e125182` | 0.10-0.14 | `build(policy): add repo policy check with denylist, vendored-dir and binary rules` |
+| (this commit) | tracking | `docs(openspec): record apply progress for slice 0c part 1` |
+
+RED tests share the commit with their GREEN implementation so the branch never carries failing tests.
+
+### TDD Cycle Evidence
+
+| Task | Test file | RED (observed) | GREEN (observed) | REFACTOR |
+|---|---|---|---|---|
+| 0.10 | `tests/unit/repo-policy/docs-paths.test.ts` | `pnpm vitest run tests/unit/repo-policy` with no script: 15 failed / 2 passed across the 3 task files; every spawned process reported `MODULE_NOT_FOUND` for `scripts/check-repo-policy.ts`. The 2 passes were vacuous (they only assert exit 1) | 17 passed after `scripts/check-repo-policy.ts` | none |
+| 0.11 | `tests/unit/repo-policy/repo-selection.test.ts` | same run | same | none |
+| 0.12 | `tests/unit/repo-policy/commit-state.test.ts` | same run | same | none |
+| 0.13 | `policy-modes.test.ts` (added as triangulation for hashed mode, vendored block, manifest rule, usage) | Written after the script, so no RED. Sensitivity check by mutation: disabling the manifest, `extension` segment and hashed-token checks failed 3 of 8 tests | 25 passed | Biome formatting only |
+| 0.14 | `commit-state.test.ts` | same as 0.12 | same as 0.12 | none |
+
+### Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run tests/unit/repo-policy`: exit 0, 4 files, 25 tests passed |
+| Runtime harness command/scenario and exact result | Real `node scripts/check-repo-policy.ts` processes against throwaway git repos (including a linked worktree and an alternate `GIT_INDEX_FILE`). `pnpm check:repo-policy --all` on this repository: exit 0 |
+| Rollback boundary | `git revert e125182`: `scripts/check-repo-policy.ts`, `tests/unit/repo-policy/**`, `tests/fixtures/binary/ALLOWLIST`, the `check:repo-policy` script |
+
+### Deviations
+
+1. Case 6 of 0.10 (real-looking email fails secretlint) is deferred to task 0.16, where `.secretlintrc.json` exists; adding it earlier would commit a failing test.
+2. Extra test file `policy-modes.test.ts` (not in the task list) covers the GREEN behavior of 0.13 that no listed RED test exercises: hashed denylist, fork notice, vendored block, manifest rule, usage errors.
+3. The script is run as `node scripts/check-repo-policy.ts` (native TypeScript type stripping, no extra dependency). `engines.node` is `>=22.12`, where type stripping needs a flag; CI must use Node 22.18+ or 24+ (decide in 0e). Local runtime is Node 26.
+4. The denylist report names the matching entry by position (`entry #N`), never by value, so output cannot leak a term. Path names are scanned as text too.
+5. The hashed mode tokenizes content into words and hashes each; multi-word denylist terms are only supported in the local plain-text mode.
+6. Slice size: 481 authored lines (all additions) for 0.10-0.14, over the 400 budget; stopped here instead of adding 0.15-0.17. No `size:exception` requested for this slice; recommend reviewers accept it as a cohesive unit or request a split of the test files.
+
+### Remaining tasks
+
+- [ ] 0.15 (check-deps), 0.16 (secretlint, plus the 0.10 case 6 test), 0.17 (hook, lint-staged, PR template) - follow-up slice
+- [ ] 0.18-0.23 (PR 0d), PR 0e, then sub-changes 1 to 7
+
+### Workload / PR boundary
+
+- Mode: stacked PR slice (`auto-chain`, `stacked-to-main`), slice 0c part 1, targets `feat/0b-boundaries` until PR #2 merges.
+- Review budget: 481 authored changed lines.
