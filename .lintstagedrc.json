@@ -1,0 +1,4 @@
+{
+  "*": "secretlint --no-gitignore",
+  "*.{ts,tsx,js,mjs,cjs,json,jsonc,css}": "biome check --no-errors-on-unmatched --files-ignore-unknown=true"
+}
