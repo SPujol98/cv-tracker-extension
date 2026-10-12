@@ -15,14 +15,10 @@ function biome(command: string, ...args: string[]) {
 }
 
 // biome.json excludes each fixture directory from the normal run (add a line per new fixture
-// directory), so fixtures are linted through biome.fixtures.json, which extends the real
+// directory), so fixtures are linted through the root biome.fixtures.json, which extends the real
 // config and re-includes them.
 function lintFixture(name: string) {
-  return biome(
-    'lint',
-    '--config-path=tests/lint-fixtures/biome.fixtures.json',
-    `tests/lint-fixtures/biome/${name}`,
-  );
+  return biome('lint', '--config-path=biome.fixtures.json', `tests/lint-fixtures/biome/${name}`);
 }
 
 describe('Biome base rules (SHELL-5, PRIV-4)', () => {

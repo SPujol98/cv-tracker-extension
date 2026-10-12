@@ -1,11 +1,29 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-  "files": {
-    "includes": ["**", "!tests/lint-fixtures/biome"]
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
   },
-  "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
-  "javascript": { "formatter": { "quoteStyle": "single" } },
+  "files": {
+    "includes": [
+      "**",
+      "!tests/lint-fixtures/biome",
+      "!tests/lint-fixtures/core-globals",
+      "!tests/lint-fixtures/gritql",
+      "!tests/lint-fixtures/gritql-portal"
+    ]
+  },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single"
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
@@ -16,5 +34,46 @@
       }
     }
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } }
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["src/core/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedGlobals": {
+              "level": "error",
+              "options": {
+                "deniedGlobals": {
+                  "chrome": "src/core is pure; inject chrome through a port (ADR-01)",
+                  "browser": "src/core is pure; inject browser through a port (ADR-01)",
+                  "document": "src/core is pure; inject document through a port (ADR-01)",
+                  "window": "src/core is pure; inject window through a port (ADR-01)",
+                  "navigator": "src/core is pure; inject navigator through a port (ADR-01)",
+                  "indexedDB": "src/core is pure; inject indexedDB through a port (ADR-01)",
+                  "localStorage": "src/core is pure; inject localStorage through a port (ADR-01)",
+                  "fetch": "src/core is pure; inject fetch through a port (ADR-01)"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "plugins": [
+    "./biome-plugins/no-new-function.grit",
+    "./biome-plugins/no-html-sinks.grit",
+    "./biome-plugins/no-send-beacon.grit",
+    {
+      "path": "./biome-plugins/no-forbidden-portal-strings.grit",
+      "includes": ["**", "!**/src/core/guard.ts", "!**/tests/unit/core/guard.test.ts"]
+    }
+  ]
 }

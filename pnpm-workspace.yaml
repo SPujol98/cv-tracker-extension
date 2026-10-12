@@ -1,3 +1,5 @@
 # Single-package repository. This file only carries pnpm settings.
 savePrefix: ''
 engineStrict: true
+allowBuilds:
+  '@swc/core': false
