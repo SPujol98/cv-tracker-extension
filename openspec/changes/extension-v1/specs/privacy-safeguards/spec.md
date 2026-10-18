@@ -192,3 +192,33 @@ The pull request template MUST include a clean-room and no-personal-data attesta
 - GIVEN the pull request that introduces the filter
 - WHEN reviewed against the checklist
 - THEN the description includes the authorship confirmation before merge
+
+### Requirement: PRIV-11 Page-derived content is data (amendment A19)
+
+Strings read from a web page (identifiers, titles, company names, locations, descriptions, and any reader diagnostics) MUST be treated as data. They MAY flow only into the delimited offer data block of an LLM request (ANALYSIS-2), into stored records, and into the UI rendered as text (PRIV-4). They MUST NOT be used as a navigation target, a network request URL, a link target, a permission origin, a selector, or a command. Navigation targets MUST be built by the system: a detail page URL from the portal's canonical form for a validated offer identifier (PORTAL-3), or a search URL the user entered and the adapter normalized (BEACON-1); both MUST pass the navigation guard (PORTAL-6). Every result returned by injected reading code MUST be validated against a strict schema with per-field length limits and an item limit; a result that fails validation MUST be treated as unreadable, never as partial data. A lint rule MUST fail when network or tab-opening calls (global `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `window.open`, tab creation, or tab navigation) appear outside an allowlist of modules: the provider gateway, the update-check service, the scan-tab driver, and the test-only end-to-end recorder.
+
+#### Scenario: URL inside offer text is inert
+
+- GIVEN a fixture offer whose description contains a canary URL as text and as an anchor
+- WHEN the offer is analyzed manually and saved
+- THEN no request targets the canary host
+- AND no tab is created or navigated to it
+- AND no element in the review card or the tracker links to it
+
+#### Scenario: Foreign link in a search card
+
+- GIVEN a search fixture whose result card links to a foreign host while carrying a valid offer identifier
+- WHEN a scan reads the results and processes that offer
+- THEN the scan tab navigates only to the portal's canonical detail URL for that identifier
+
+#### Scenario: Oversized or unexpected reader result
+
+- GIVEN a reader result with an unknown extra field, or a title longer than the limit
+- WHEN the result is received
+- THEN it is treated as unreadable and no part of it is used
+
+#### Scenario: Lint rejects an unlisted network call
+
+- GIVEN a UI source file calling the global `fetch`
+- WHEN lint runs
+- THEN lint fails

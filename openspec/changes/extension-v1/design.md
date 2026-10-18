@@ -6,7 +6,7 @@
 
 1. **Spec Traceability** and **Spec amendments** (end of document): what the design commits to, and the requirement changes it depends on.
 2. **Architecture Overview** and **Module Boundaries**: the layering rules every task follows.
-3. **Architecture Decisions** (ADR-01 to ADR-28): each choice, its rejected alternatives, and the rationale.
+3. **Architecture Decisions** (ADR-01 to ADR-29): each choice, its rejected alternatives, and the rationale. Amendments A18-A21 (2026-10-18) add ADR-29 and extend ADR-10, ADR-14, ADR-23, and ADR-27; see **Spec amendments**.
 4. **Data Flow** sequences for manual analysis, provider calls, onboarding, beacon scans, and backup import.
 5. **Interfaces / Contracts**, which `sdd-tasks` slices against.
 6. **Spike Dependencies**, the **Sub-change Map**, and the **Size Forecast**, before planning.
@@ -241,8 +241,10 @@ Rule of thumb: if it can be unit-tested in Node without a fake browser, it belon
 - The side panel has its own "Analyze this page" button. It works on supported portals with a granted host permission, and on any tab that still holds an `activeTab` grant. On a supported portal without the host permission, the side-panel click is itself a user gesture, so the side panel calls `chrome.permissions.request` for that portal origin first (MANUAL-2). Only if the user denies, or the tab is neither a supported portal nor `activeTab`-granted, does the worker return `permission_missing` (PORTAL-7), and the card explains: "click the toolbar icon or press the shortcut".
 - A keyboard `commands` entry (`analyze-page`) also grants `activeTab`. It needs no permission.
 - **Generic fallback** (MANUAL-3): `reader-generic` extracts the main-content text under `activeTab`. The panel shows an editable preview, and nothing is sent until the user confirms. The id is `sha256(canonicalizeGenericUrl(url))`, where canonicalization lowercases the host, drops the fragment, drops the default port, and removes `utm_*` parameters.
+- **Generic URL source** (amendment A19): the generic id and the stored `canonicalUrl` derive from `tabs.get(tabId).url`, captured by the worker when it builds the preview and kept in `chrome.storage.session` under a `previewId`. The reader never supplies the URL, and `analysis.confirmGeneric` carries no URL (Contract M).
+- **Source-host classification** (amendment A20): every URL that reaches the registry, the guard, or the generic flow is classified by `classifyHost(url)` (Contract E) into `portal`, `known_ats`, or `unverified`. For the generic fallback the result is informational only: an `unverified` host shows a non-blocking chip "Unverified source: <host>" in the preview and on the card, rendered as a text node. It never blocks the preview, never changes the analysis or the verdict, and never becomes a link.
 
-**Alternatives considered**: `openPanelOnActionClick: true`. With it, the popup never shows, which breaks TRACKER-5, PORT-6, and MANUAL-1 (popup entry). `contextMenus` was dropped because it would be a required permission outside the SHELL-1 allowlist.
+**Alternatives considered**: `openPanelOnActionClick: true`. With it, the popup never shows, which breaks TRACKER-5, PORT-6, and MANUAL-1 (popup entry). `contextMenus` was dropped because it would be a required permission outside the SHELL-1 allowlist. For A20: blocking analysis on an unverified host (rejected: the generic fallback exists precisely for arbitrary pages, and the user is already looking at the page); a substring or regex host match (rejected: it accepts `linkedin.com.evil.com` and `evil-linkedin.com`).
 **Spike tag** `[S5]`: confirm on Chrome and Edge that `sidePanel.open` and `permissions.request` both succeed from one popup click handler, and that `activeTab` is granted by the popup open. **If S5 fails**: the popup keeps the card (fallback mode) and offers "Open side panel" as a separate click. The permission request moves to its own button before analysis.
 
 ### ADR-11: Storage split; Dexie tables introduced incrementally; no `unlimitedStorage` by default
@@ -307,13 +309,19 @@ Rule of thumb: if it can be unit-tested in Node without a fake browser, it belon
 4. Post-validation enforces grounding, claim-id existence, placeholders, and the wall evidence floor and citation (Contract C).
 5. `injectionSignals(text)` (`src/core/injectionSignals.ts`) detects instruction-like phrases addressed to a model ("ignore previous instructions", "you are now", "output score", and their ES/CA equivalents) over the full normalized text. Any signal sets `flags.injectionSuspected`, shows a chip, and **downgrades `apply` to `review`** with `verdictReason: 'injection_downgrade'` (amendment A12). It never upgrades a verdict and never adds a wall.
 6. Untrusted text renders only as React text nodes (PRIV-4). Only adapter-built canonical URLs become links.
+7. **Page-derived content never steers code** (amendment A19, PRIV-11). Strings read from a page (reader results: ids, titles, companies, locations, descriptions, strategy names) are data. They may flow only into (a) the LLM `variable` block, delimited per item 1, (b) storage as record fields, and (c) the UI as text nodes. They are never used as a navigation target, a fetch URL, a link `href`, a permission origin, a selector, or a command. Concretely:
+   - **Navigation targets are rebuilt, not read.** The worker navigates only to (i) `adapter.canonicalFor(id)` for a detail page, where `id` must match the adapter's id pattern, or (ii) a beacon search URL that the user entered and `normalizeSearchUrl` accepted at save time. Both still pass `isAllowedNavigation` (PORTAL-6). A URL that appears in page markup or offer text is never navigated, fetched, opened in a tab, or linked.
+   - **Reader results are parsed strictly.** Every `executeScript` result is parsed with a `.strict()` Zod schema (`src/core/schemas/reader.ts`, Contract E) with per-field length caps and an item cap. A parse failure is treated as `unreadable` (fail closed), never as partial data.
+   - **Egress call sites are allowlisted by lint.** A GritQL plugin (`biome-plugins/restricted-egress.grit`, ADR-23) fails on the global `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `window.open`, `tabs.create`, and `tabs.update` outside an allowlist: `src/background/services/providerGateway.ts` (binds the `FetchLike` injected into providers), `src/background/services/update.ts` (release check), `src/background/scanTabDriver.ts` (scan tab), and `src/e2e/overrides.ts` (E2E-only recorder, compiled out of release builds, ADR-28). Providers call the injected `deps.fetch`, never the global.
+   - **Canary E2E.** A fixture offer whose description and markup contain a canary URL (`https://canary.invalid/...`, both as text and as an anchor) and a search fixture whose card anchors point to a foreign host while carrying a valid-looking id. Expected: zero requests to the canary host, no tab created or updated with it, no element with that `href` in the card or the tracker, and the detail navigation goes to `canonicalFor(id)` on the portal host only.
 
 **Residual risk** (stated in `SECURITY.md` and `PRIVACY.md`):
 - The **score** is model-chosen and not grounded. Injected text that evades the signal table can still inflate the score of an offer within one verdict band or more. Mitigations: the downgrade on signals, the visible rationale and evidence, and the fact that the extension never applies to anything; the user decides.
 - **Wall selection** is model-chosen. Injected text can induce a wall only with real evidence of at least the strong floor that cites a real dealbreaker or unmet must-have, which bounds it to plausible blockers.
 - The signal table is precision-first and incomplete by design; it is a tripwire, not a filter.
+- The **rationale** is model-written prose. ADR-29 audits only its quantitative assertions (durations, percentages, money amounts, calendar years); a qualitative invented fact ("has led teams") is not detected.
 
-**Rationale**: Defense in depth, where every deterministic layer is unit-tested, and the remaining model-trusted decisions are named instead of implied away.
+**Rationale**: Defense in depth, where every deterministic layer is unit-tested, and the remaining model-trusted decisions are named instead of implied away. Item 7 closes the gap between "offer text is data for the model" and "page content is data for the code": before A19, a reader-supplied `canonicalUrl` reached `tabs.update` behind only an https-and-host guard.
 
 ### ADR-15: Stable manifest `key` pinned for unpacked ID stability `[S6]`
 
@@ -440,11 +448,13 @@ Rule of thumb: if it can be unit-tested in Node without a fake browser, it belon
 | Pre-commit | **simple-git-hooks** + **lint-staged** | lint-staged hides unstaged changes, so secretlint sees exactly the staged content. |
 | Dependency vulnerabilities | **`pnpm audit --prod --audit-level high`** in CI, **Dependabot** updates | ADR-27 |
 | Code scanning | **CodeQL** (`javascript-typescript`) | ADR-27 |
+| Egress call sites (amendment A19) | **Biome GritQL plugin** `biome-plugins/restricted-egress.grit`, disabled through a Biome `overrides` entry only for the four allowlisted files (ADR-14 item 7) | PRIV-11. Positive fixture: global `fetch` in `src/ui/x.ts` fails; negative: `deps.fetch(...)` in `src/providers/x.ts` passes. Same per-pattern TypeScript-AST fallback as the other plugins. |
 
 **Custom checks kept** (product-specific, no maintained equivalent):
 - `scripts/check-repo-policy.ts` (PRIV-7, PRIV-8, PRIV-9): the clean-room denylist (local `.privacy-denylist.txt` in plain text for pre-commit; hashed tokens from the CI secret `PRIVACY_DENYLIST_SHA256`, skipped with a notice on forks), failure if the denylist file is tracked or staged, the vendored-extension block (any tracked path segment `extension`, any tracked `manifest.json` outside build output), and the binary policy (`.pdf`, `.docx`, `.xlsx`, `.zip` only under `tests/fixtures/binary/` with an allowlisted hash). In `--staged` mode it reads blobs from the index.
 - `scripts/check-deps.ts` (PRIV-2): the telemetry package denylist (`scripts/telemetry-denylist.json`) against `package.json` and the lockfile.
-- `tests/build/manifest.test.ts` (SHELL-1/2/5): the exact permission allowlist and manifest invariants (Contract L).
+- `tests/build/manifest.test.ts` (SHELL-1/2/5): the exact permission allowlist and manifest invariants (Contract L), including the exact top-level key allowlist (amendment A21), implemented in `tests/build/manifest-rules.ts`.
+- `tests/build/supply-chain.test.ts` (SHELL-12, amendment A21): install-time script policy over `pnpm-workspace.yaml` and `package.json` (Contract L, "Install-time script policy").
 - Release-only scripts in sub-change 7: `check-version.ts`, `check-zip.ts`, `check-docs.ts`.
 
 **Alternatives considered**: A bespoke AST ban script and a bespoke privacy scanner for everything (duplicates maintained tools and their rule updates). An architecture test that parses import specifiers (misses resolved paths that dependency-cruiser handles). ESLint with `eslint-plugin-no-unsanitized` (a second linter next to Biome). gitleaks (strong for history scanning, but a non-npm binary for every contributor's pre-commit; it can be added in CI later without changing this design).
@@ -482,6 +492,7 @@ Rule of thumb: if it can be unit-tested in Node without a fake browser, it belon
 - **`CHANGELOG.md`**: Keep a Changelog format, maintained in each release PR from Conventional Commits; the release notes template draws from it.
 - **Dependabot** (`.github/dependabot.yml`): `npm` and `github-actions`, weekly, minor and patch grouped.
 - **CI security**: `pnpm audit --prod --audit-level high` as a blocking CI step; CodeQL (`.github/workflows/codeql.yml`) on PRs and weekly.
+- **Install-time scripts and manifest surface** (amendment A21): dependency build scripts stay off by default. Every `allowBuilds` entry in `pnpm-workspace.yaml` is `false`, `dangerouslyAllowAllBuilds` is never set, and the root `package.json` declares no install-time lifecycle script other than `prepare` (which installs the git hook). The built manifest is checked against an exact allowlist of top-level keys, so a dependency or WXT upgrade that adds `web_accessible_resources`, `externally_connectable`, or another surface fails the build test instead of shipping silently. Both are build tests (SHELL-1, SHELL-12), not review conventions.
 - **Release provenance**: `release.yml` attests both zips with `actions/attest-build-provenance` and publishes their SHA-256 sums.
 - **README media**: screenshots and one short GIF in `docs/media/`, captured from a Playwright run over synthetic fixtures only, and covered by the repository policy scan.
 
@@ -499,6 +510,25 @@ Rule of thumb: if it can be unit-tested in Node without a fake browser, it belon
 
 **Alternatives considered**: A `fake` member in the production `ProviderId` union guarded by a runtime flag (dead code and an attack surface in every user's bundle).
 **Rationale**: What users install is exactly what the product needs, and the check is mechanical.
+
+### ADR-29: Candidate-side grounding audit of the rationale; ungrounded figures downgrade `apply`, never add walls (amendment A18, ANALYSIS-11)
+
+**Choice**:
+- A new post-validation step **8b** (`auditRationale`, `src/core/analysis/rationaleAudit.ts`, Contract C) runs after the branch step. It extracts **quantitative assertions** from `rationale`: durations (a number followed by a year, month, week, or day unit word, EN and ES; CA in sub-change 7), percentages (a number followed by `%`), money amounts (a number adjacent to a currency sign or code, or with a `k` suffix), and calendar years (4-digit 1950-2099).
+- An assertion is **grounded** when its normalized numeric value appears as a numeric token in the **evidence corpus**: `fold(requestText)` plus the folded profile snapshot inputs of `profileVersion` (claim statements and tags, branch names, rules, and dealbreakers). Number words one to twenty (EN, ES; CA in sub-change 7) in the corpus are normalized to digits before matching; decimal commas and thousands separators are normalized; `k` expands to thousands.
+- Excluded from extraction: the output's own `score` value and tokens inside claim, branch, and dealbreaker ids (`c-12`, `b-2`, `b-2/d1`). Bare counts ("2 of 3 requirements") are not assertions.
+- Ungrounded assertions are recorded in `diagnostics.ungroundedClaims = { count, samples }` (at most 5 samples, each at most 40 characters, literal spans of the rationale). They never produce `invalid_output`, never change `score`, `fit`, `walls`, or `branch_id`, and never mark a fit entry `unmatched`.
+- `derive()` passes `ungroundedClaims.count` to `deriveVerdict`: a would-be `apply` becomes `review` with `verdictReason: 'grounding_downgrade'`. When injection signals are also present, `injection_downgrade` takes precedence as the recorded reason. A `review` or `skip` is never changed (the A12 pattern: downgrade only, never upgrade, never a wall).
+- The card shows a chip "Unverified figures in the rationale" listing the samples as text nodes (MANUAL-4).
+- The rubric (Contract B, prefix[0]) gains one sentence: state only figures present in the offer or in the listed claims. This lowers the base rate; the audit is the enforcement. No prompt has shipped, so `PROMPT_VERSION` stays `analysis-2`; if 2a-2 merges before this amendment is implemented, the sentence bumps it.
+
+**Alternatives considered**:
+- **Marking the related fit entries `unmatched`.** Rejected: step 7 derives `unmet_must_have` walls from unmatched must-have entries, so an audit finding would manufacture walls and false `skip` verdicts, the exact failure the parity criterion forbids.
+- **`invalid_output` on any ungrounded figure.** Rejected: a single stray number would discard an otherwise grounded analysis and cost a re-run.
+- **Auditing every noun phrase or claim with a second model call.** Rejected: non-deterministic, costs a call (ANALYSIS-1 forbids extra calls), and is untestable as a table.
+- **Recomputing the audit in `derive()` instead of storing it.** Rejected as unnecessary: the corpus is limited to cache-key inputs (`requestText` and the `profileVersion` inputs), so the stored result cannot go stale; storing it keeps `derive()` cheap and the cached `ValidatedOutput` self-describing.
+
+**Rationale**: The existing chain grounds the **offer** side (requirement and wall evidence) and checks that claim, dealbreaker, and branch ids exist, but the rationale, which is what the user reads first, could assert "5 years of Kotlin" that neither the offer nor the profile contains. Quantities are the highest-value, lowest-false-positive slice of that problem and are fully deterministic. The idea of auditing candidate-side assertions against the candidate's own declared facts is borrowed from MadsLorentzen/ai-job-search (MIT); only the idea is adopted, no code or text.
 
 ---
 
@@ -519,9 +549,12 @@ User   Popup / SidePanel            SW router + AnalysisService        Tab (isol
  |              |                        | G4 host perm (portal) or activeTab probe; else 'permission_missing', nothing injected
  |              |                        | executeScript(files:[reader-x]) ------------>|
  |              |                        | executeScript(func: markers+readDetail) ---->| {markers, detail|failure}
+ |              |                        | strict Zod parse of the result (caps) -> parse failure = 'unreadable'   [A19]
  |              |                        | classify(tables, url, -, markers) != ok -> card 'wall:<state>' (no call)
  |              |                        | detail 'unreadable' or 'unreadable_shell' -> card 'unreadable' + generic fallback
- |              |                        | generic: return preview -> user edits -> cmd analysis.confirmGeneric{text}
+ |              |                        | generic: url = tabs.get(tabId).url (never the reader) -> classifyHost(url) [A19, A20]
+ |              |                        |   -> preview {previewId, title, text, hostClass} (unverified -> chip)
+ |              |                        |   -> user edits -> cmd analysis.confirmGeneric{tabId, previewId, title, text}
  |              |                        | enqueue analyze{offer, trigger:'manual', mode:'normal'} (dedupeKey)
  |              |<-- {jobId} ------------| pump()
  |              | port progress:<jobId>  card 'reading' -> 'analyzing'                         | claim (lease)
@@ -593,12 +626,15 @@ scan.search : gate -> ensureScanTab (autoDiscardable:false) -> guard(searchUrl) 
                                     notify; close tab; run items stay queued (nextAt = backoff end)   [BEACON-8]
               unreadable_shell -> pacing delay -> re-navigate once -> again? end run, layoutFailures++,
                                     3rd consecutive run -> layoutSuspect; items stay pending          [A13]
-              ok -> readSearchResults (first page) -> dedupe -> evaluateBeacon(filter, blocklist, branches)
+              ok -> readSearchResults (first page) -> strict Zod parse (RawSearchItem[], caps) -> dedupe
+                 -> keep items whose id matches the adapter id pattern; canonicalUrl = canonicalFor(id) [A19]
+                 -> evaluateBeacon(filter, blocklist, branches)
                  baseline (beacon.baselineDoneAt null): mark ALL read ids seen; enqueue nothing; finish
                  filtered-out ids -> seen now
                  new passing ids (not seen) -> enqueue scan.detail (dedupe), nextAt paced 2.5-6 s
 scan.detail : gate (detail cap 30/day; budget) -> fail: defer (pending, not seen)
-              -> guard -> navigate canonical URL -> classify -> wall / shell? (as above)
+              -> url = canonicalFor(source, id) (rebuilt by the worker, never read from the page) [A19]
+              -> guard -> navigate url -> classify -> wall / shell? (as above)
               -> readDetail: unreadable -> retry (2 more, 1 min / 5 min) -> then flagged row, seen   [ADR-26]
               -> ok: in ONE transaction: mark step done + enqueue analyze{trigger:'scan'} (llm lane)
 analyze     : (llm lane) cache/budget/reservation/complete/postValidate
@@ -723,7 +759,7 @@ export function createProvider(id: ProviderId, deps: ProviderDeps): LlmProvider;
 
 | Part | Content |
 |---|---|
-| prefix[0] | Product-authored generic rubric. The score is the integer realistic fit (0-100). Report walls only for blockers the candidate cannot meet, with verbatim evidence of at least a few words, each citing either a listed dealbreaker reference or an unmet must-have requirement. Cite only listed claim ids. Never use placeholders. Write the rationale in `<outputLanguage>`. |
+| prefix[0] | Product-authored generic rubric. The score is the integer realistic fit (0-100). Report walls only for blockers the candidate cannot meet, with verbatim evidence of at least a few words, each citing either a listed dealbreaker reference or an unmet must-have requirement. Cite only listed claim ids. Never use placeholders. In the rationale, state only figures (years, durations, percentages, amounts) that appear in the offer or in the listed claims (amendment A18). Write the rationale in `<outputLanguage>`. |
 | prefix[1] | Claims as `id: statement [tags]` lines, sorted by id. |
 | prefix[2] | Branches as `id: name`, each with its rules and its dealbreakers as `<branchId>/d<index>: text`, sorted by id. |
 | variable | The untrusted-data preamble, then `<offer_data source="..." title="..." company="...">` + escaped `requestText` + `</offer_data>`. |
@@ -768,13 +804,14 @@ const OfferAnalysisOutput = z.object({
 | 6 | Claim ids | Remove ids absent from the profile snapshot (`removedClaimIds++`); an entry left with 0 ids is kept with `unmatched: true` | - |
 | 7 | Walls | Keep a wall only if `strong(evidence)` and its citation resolves: `dealbreaker` ref exists in the snapshot, or `unmet_must_have` ref folds equal to a kept `must_have` requirement whose fit entry is missing or `unmatched` (amendment A10) | Dropped; `droppedWalls.{ungrounded, weakEvidence, uncited}++` |
 | 8 | Branch | `branch_id` exists in the snapshot | Otherwise `null` |
+| 8b | Rationale audit (amendment A18, ADR-29) | Every quantitative assertion in `rationale` (duration, percentage, money amount, calendar year) has its numeric value in the evidence corpus: `fold(requestText)` plus the folded `profileVersion` inputs of the snapshot (claim statements and tags, branch names, rules, dealbreakers) | Recorded in `diagnostics.ungroundedClaims`; never `invalid_output`; never changes score, fit (no `unmatched` marking), walls, or branch |
 
-The output of steps 1-8 is the **`ValidatedOutput`**: requirements, fit, walls, score, branch id, rationale, and diagnostics. It is what the cache stores (Contract D). The derived fields come from `derive(validated, { fullText, requestText, snapshot, pdfs })`, which runs on every fresh result and on every cache hit:
+The output of steps 1-8b is the **`ValidatedOutput`**: requirements, fit, walls, score, branch id, rationale, and diagnostics. It is what the cache stores (Contract D). The derived fields come from `derive(validated, { fullText, requestText, snapshot, pdfs })`, which runs on every fresh result and on every cache hit:
 
 | # | Derived field | Rule |
 |---|---|---|
 | 9 | Injection signals | `injectionSignals(fullText)` (ADR-14) |
-| 10 | Verdict | `deriveVerdict({ score, acceptedWalls, injectionSuspected })` (Contract D) |
+| 10 | Verdict | `deriveVerdict({ score, acceptedWalls, injectionSuspected, ungroundedClaims: diagnostics.ungroundedClaims.count })` (Contract D) |
 | 11 | Language | `inferLanguage(fullText)` |
 | 12 | Apply warnings | `detectApplyWarnings(fullText)` |
 | 13 | PDF | `pickPdf(branchId, language, pdfs)` |
@@ -783,18 +820,25 @@ The output of steps 1-8 is the **`ValidatedOutput`**: requirements, fit, walls, 
 - Whole-string: `tbd`, `todo`, `n/a`, `...`, the ellipsis character, `<word>`-style angle templates, and the schema type words `string`, `number`, `integer`, `boolean`, `array`, `object`, `null`.
 - Substring: `lorem ipsum`, `{{...}}`.
 
-**Diagnostics**: `{ droppedRequirements, droppedWalls: { ungrounded, weakEvidence, uncited }, removedClaimIds, unmatchedFit }` is always present on success.
+**Diagnostics**: `{ droppedRequirements, droppedWalls: { ungrounded, weakEvidence, uncited }, removedClaimIds, unmatchedFit, ungroundedClaims: { count, samples } }` is always present on success. `samples` holds at most 5 literal rationale spans of at most 40 characters each (amendment A18).
+
+**Step 8b extraction** (`auditRationale(rationale, corpus, { score, ids })`, ADR-29):
+- Assertion classes: `<number> <duration unit>` (EN, ES; CA in sub-change 7), `<number>%`, money (`€`, `$`, `£`, `EUR`, `USD`, or a `k` suffix adjacent to the number), and 4-digit calendar years 1950-2099. Bare counts are not extracted.
+- Numeric normalization (both sides): decimal comma to dot, thousands separators removed, `k` multiplied by 1,000; corpus number words one to twenty (EN, ES; CA in sub-change 7) mapped to digits.
+- Exclusions: the integer equal to `score`; digits inside `c-<n>`, `b-<n>`, and `b-<n>/d<n>` ids.
+- The corpus is limited to cache-key inputs, so a cached `ValidatedOutput` stays valid on a hit (Contract D, A15).
 
 ### D. Verdict, language, warnings, PDF, cache (`src/core/analysis/*`, `src/core/language.ts`, `src/core/applyWarnings.ts`, `src/core/injectionSignals.ts`)
 
 ```ts
 export const APPLY_THRESHOLD = 70, REVIEW_THRESHOLD = 40;           // ANALYSIS-5 (spec values)
 export type Verdict = 'apply' | 'review' | 'skip';
-export type VerdictReason = 'wall' | 'score' | 'injection_downgrade';
-export function deriveVerdict(i: { score: number; acceptedWalls: readonly unknown[]; injectionSuspected: boolean }):
-  { verdict: Verdict; reason: VerdictReason };
-// walls.length > 0 -> skip/wall; score >= 70 -> apply/score, but injectionSuspected -> review/injection_downgrade;
-// score >= 40 -> review/score; else skip/score
+export type VerdictReason = 'wall' | 'score' | 'injection_downgrade' | 'grounding_downgrade';   // A12, A18
+export function deriveVerdict(i: { score: number; acceptedWalls: readonly unknown[]; injectionSuspected: boolean;
+  ungroundedClaims: number }): { verdict: Verdict; reason: VerdictReason };
+// walls.length > 0 -> skip/wall; score >= 70 -> apply/score, but injectionSuspected -> review/injection_downgrade,
+//   else ungroundedClaims > 0 -> review/grounding_downgrade (ADR-29);
+// score >= 40 -> review/score; else skip/score. Downgrades never apply to review or skip.
 
 export function injectionSignals(text: string): { suspected: boolean; matches: string[] };
 // phrase table EN/ES/CA, authored fresh, precision-first; matches are short excerpts for the chip
@@ -858,9 +902,15 @@ export type ReadResult<T> =
   | { ok: true; data: T; strategy: string }
   | { ok: false; failure: 'unreadable'; attempted: string[] }        // no page text included (PORTAL-4)
   | { ok: false; failure: 'permission_missing' };                    // PORTAL-7
-export interface SearchItem { id: string; canonicalUrl: string; title: string; company: string; location?: string }
+export interface RawSearchItem { id: string; title: string; company: string; location?: string } // reader output (A19)
+export interface SearchItem extends RawSearchItem { canonicalUrl: string }  // worker-built: canonicalUrl = canonicalFor(id)
 export interface OfferDetail { title: string; company: string; location?: string; text: string } // plain text
-export interface GenericPreview { url: string; title: string; text: string }                    // MANUAL-3
+export interface GenericPreview { title: string; text: string }   // MANUAL-3; the URL comes from tabs.get, never the reader (A19)
+export type HostClass =                                            // A20
+  | { kind: 'portal'; source: SourceId; host: string }
+  | { kind: 'known_ats'; host: string }
+  | { kind: 'unverified'; host: string | null;
+      reason: 'unparseable' | 'not_https' | 'userinfo' | 'port' | 'trailing_dot' | 'punycode' | 'unknown_host' };
 export interface PageMarkers { loginForm: boolean; authwall: boolean; challenge: boolean; contentRoot: boolean; noResults: boolean }
 export interface ClassifyTables {                    // per-portal data, consumed by src/core/classify.ts
   loginUrl: readonly RegExp[]; authwallUrl: readonly RegExp[]; checkpointUrl: readonly RegExp[];
@@ -872,6 +922,8 @@ export interface PortalAdapter {                     // pure; runs in SW/UI
   readonly hostPermissions: readonly string[];       // subdomain wildcards, e.g. 'https://*.linkedin.com/*'
   readonly classifyTables: ClassifyTables;
   matches(url: string): boolean;
+  readonly idPattern: RegExp;                        // anchored, e.g. /^\d{1,20}$/ for LinkedIn (A19)
+  canonicalFor(id: string): string | null;           // null unless idPattern matches; output passes isAllowedNavigation
   normalizeSearchUrl(input: string): { ok: true; url: string } | { ok: false; reason: 'host_mismatch' | 'forbidden_form' | 'not_search' };
   classify(input: { url: string; status?: number; markers: PageMarkers }): PageState; // delegates to core classify
   readonly readerScript: `reader-${SourceId}`;
@@ -880,12 +932,13 @@ export interface PortalAdapter {                     // pure; runs in SW/UI
 export function mapUrl(url: string): { source: SourceId; id: string; canonicalUrl: string } | null; // PORTAL-1
 export function isAllowedNavigation(url: string): boolean;                                          // PORTAL-6
 export function canonicalizeGenericUrl(url: string): string;                                        // MANUAL-3
+export function classifyHost(url: string): HostClass;                                               // PORTAL-11 (A20)
 export function classify(tables: ClassifyTables, input: { url: string; status?: number; markers: PageMarkers }): PageState;
 
 // src/portals/readers.ts (page-side, DOM-typed)
 export interface PortalReaders {                     // bundled into reader-<portal>.js; runs in page
   collectMarkers(doc: Document): PageMarkers;
-  readSearchResults(doc: Document): ReadResult<SearchItem[]>;    // first page; dedupe by id; [] only with noResults
+  readSearchResults(doc: Document): ReadResult<RawSearchItem[]>; // first page; dedupe by id; [] only with noResults; no URLs (A19)
   readDetail(doc: Document, opts: { timeoutMs: number }): Promise<ReadResult<OfferDetail>>; // expand + bounded wait
 }
 // src/portals/generic/readers.ts: readMainContent(doc: Document): ReadResult<GenericPreview> (not a PortalAdapter)
@@ -901,11 +954,19 @@ export interface PortalReaders {                     // bundled into reader-<por
 
   The tables are specified from observed behavior and S3 fixtures, not from any third-party source.
 - **Hosts**: the registry matches `linkedin.com` and any subdomain (`*.linkedin.com`), and the InfoJobs apex and subdomains confirmed in S3 (`*.infojobs.net`). Optional host permissions use the same subdomain wildcards (Contract L).
+- **`classifyHost(url)`** (amendment A20, PORTAL-11) is the single host check; `mapUrl`, `isAllowedNavigation`, and the generic flow call it, and no other module compares hostnames.
+  1. Parse with the WHATWG `URL` constructor; a throw yields `unverified/unparseable`.
+  2. Require `protocol === 'https:'` (else `not_https`), empty `username` and `password` (else `userinfo`), and empty `port` (else `port`; WHATWG already drops the default `:443`, so only a non-default port fails).
+  3. Reject a hostname ending in `.` (`trailing_dot`) and any label starting with `xn--` (`punycode`); WHATWG converts Unicode hosts to punycode, so homographs land here. No normalization is attempted: fail closed.
+  4. Match `hostname === apex || hostname.endsWith('.' + apex)` against the portal apex table (`linkedin.com`, `infojobs.net`) first, then the `KNOWN_ATS_APEXES` table, authored fresh in `src/core/registry.ts` (a short list of widely used applicant-tracking hosts; data only, extended by PR). No match yields `unknown_host`.
+  - Navigation and reading require `kind: 'portal'`; `known_ats` and `unverified` are informational and only drive the generic-flow chip (ADR-10).
+  - Mandatory negative vectors (unit, each must not yield `portal`): `https://linkedin.com@evil.example/jobs/view/1/` (`userinfo`, and the real host is `evil.com`), `https://linkedin.com.evil.com/` (`unknown_host`), `https://evil-linkedin.com/` (`unknown_host`), `https://www.linkedin.com./jobs/view/1/` (`trailing_dot`), `https://xn--lnkedin-...com/` and a Unicode look-alike (`punycode`), `http://www.linkedin.com/jobs/view/1/` (`not_https`), `https://www.linkedin.com:8443/jobs/view/1/` (`port`), `javascript:`/`data:` URLs (`not_https`), and an unparseable string (`unparseable`). Positive vectors: apex, `www.`, and a country subdomain.
+- **Reader result schemas** (amendment A19, `src/core/schemas/reader.ts`): every reader result is parsed with `.strict()` Zod before use. Caps: `id` at most 64 characters and must then match `adapter.idPattern`; `title` 300; `company` 200; `location` 200; `text` 50,000 (the transfer cap); at most 100 search items; at most 10 `attempted` strategy names of at most 40 characters; `PageMarkers` booleans only. A result that fails to parse (unknown field, wrong type, any cap exceeded) is `unreadable` as a whole; an item that parses but whose id fails `idPattern` is dropped; a search result left with zero valid items and no `noResults` marker is `unreadable` (PORTAL-3). Parse failures are logged by count and field name only, never with page text.
 - **LinkedIn registry**: `/jobs/view/<id>` and `/jobs/view/<slug>-<id>/`, plus `currentJobId=<id>` on search and collection URLs, on any LinkedIn subdomain. Canonical form: `https://www.linkedin.com/jobs/view/<id>/`.
 - **InfoJobs registry**: the offer detail URL shape and id extraction are **confirmed against S3 fixtures** `[S3]`. Canonical form: the normalized detail URL, with query and fragment stripped. Canonicalization is idempotent.
-- **Guard**: allows only https URLs on registry hosts. It rejects `/jobs-guest/`, `/job-apply/`, and `runSearch` (case-insensitive, in path or query). These strings exist only in `guard.ts` and its test (ADR-23).
-- **Reader rules**: readers return text via `textContent` of content nodes, excluding `script` and `style`. Transfer is capped at 50,000 characters.
-- **Shared adapter contract suite**: `tests/contract/portalAdapter.contract.ts` runs per adapter over `tests/fixtures/portals/<source>/*.html` and covers results, duplicates, no-results, unrecognized markup, detail, collapsed description, fallback strategy, empty description, login, authwall, checkpoint, rate limit, and virtualized list. The generic reader has its own jsdom tests.
+- **Guard**: allows only URLs that `classifyHost` classifies as `portal` (A20). It rejects `/jobs-guest/`, `/job-apply/`, and `runSearch` (case-insensitive, in path or query). These strings exist only in `guard.ts` and its test (ADR-23).
+- **Reader rules**: readers return text via `textContent` of content nodes, excluding `script` and `style`. Transfer is capped at 50,000 characters. Readers return ids, never URLs: the search reader extracts the id from the card (attribute or `href` path) and returns only the id; the worker rebuilds the URL with `canonicalFor` (A19).
+- **Shared adapter contract suite**: `tests/contract/portalAdapter.contract.ts` runs per adapter over `tests/fixtures/portals/<source>/*.html` and covers results, duplicates, no-results, unrecognized markup, detail, collapsed description, fallback strategy, empty description, login, authwall, checkpoint, rate limit, and virtualized list, plus (A19) `canonicalFor(id)` round-tripping through `mapUrl`, `canonicalFor` returning `null` for ids that fail `idPattern`, and a card whose `href` points to a foreign host yielding only its id. The generic reader has its own jsdom tests.
 
 ### F. Title and company filter (`src/core/filter.ts`) - BEACON-3
 
@@ -1081,6 +1142,7 @@ Secrets: 'secret:anthropic', 'secret:openai'
 | `content_security_policy.extension_pages` | MV3 default (`script-src 'self'`); no `unsafe-eval`, no remote sources |
 | `key` | pinned public key (ADR-15) |
 | `minimum_chrome_version` | `116` (`sidePanel.open`) `[S5]`; raised if S6 shows `storage.local.setAccessLevel` needs a newer version |
+| Top-level keys (amendment A21) | exactly a subset of: `manifest_version`, `name`, `description`, `version`, `version_name`, `default_locale`, `key`, `minimum_chrome_version`, `icons`, `action`, `background`, `side_panel`, `options_ui`, `options_page`, `commands`, `permissions`, `optional_permissions`, `optional_host_permissions`, `host_permissions` (must still be absent or empty), `content_security_policy`. Any other key fails, naming it; this explicitly catches `web_accessible_resources`, `externally_connectable`, `content_scripts`, `update_url`, `chrome_url_overrides`, `devtools_page`, `sandbox`, `declarative_net_request`, and `oauth2`. Adding a key requires editing the allowlist in `tests/build/manifest-rules.ts` with a rationale in the same PR. |
 
 - **Build test** (`tests/build/manifest.test.ts`, run on `.output/chrome-mv3/manifest.json` after `pnpm build`) asserts:
   - The exact permission allowlist and the exact optional permission allowlist. An unexpected permission fails, naming it.
@@ -1090,6 +1152,13 @@ Secrets: 'secret:anthropic', 'secret:openai'
   - No `content_scripts`.
   - The CSP has no `unsafe-eval` or remote sources.
   - No E2E sentinel and no fake provider id in the output (ADR-28).
+  - Every top-level key is in the allowlist above; an extra key fails as `unexpected manifest key: <key>` (A21). A negative fixture adds `web_accessible_resources` and `externally_connectable`.
+- **Install-time script policy** (`tests/build/supply-chain.test.ts`, SHELL-12, amendment A21; reads the repository files, no build needed):
+  - Every value under `allowBuilds` in `pnpm-workspace.yaml` is exactly `false`; a `true` (or any non-false value) fails, naming the package.
+  - `dangerouslyAllowAllBuilds` is absent from `pnpm-workspace.yaml`, and `dangerously-allow-all-builds` is absent from `.npmrc`.
+  - The root `package.json` declares no `pnpm` field that enables builds (`onlyBuiltDependencies`, `neverBuiltDependencies`), and its `scripts` contain no install-time lifecycle key other than `prepare`: `preinstall`, `install`, `postinstall`, `preprepare`, `postprepare`, `prepublish`, `prepack`, and `postpack` fail.
+  - `prepare` equals `simple-git-hooks` exactly, so the one allowed install-time script cannot silently grow.
+  - Negative cases are table-driven over in-memory objects (the same pure-function pattern as `checkManifest`).
 - **Zod**: v4 runs with `z.config({ jitless: true })`, so it never attempts `new Function`.
 
 ### M. Commands (`src/shared/messaging/commands.ts`)
@@ -1099,7 +1168,7 @@ All commands below are privileged: accepted only from extension pages (ADR-16).
 | Command | From | Effect |
 |---|---|---|
 | `analysis.start {tabId}` | popup, side panel, keyboard command | Gates G1-G4, read, wall check, enqueue (or generic preview) |
-| `analysis.confirmGeneric {tabId, url, title, text}` | side panel / popup | Enqueue the generic offer |
+| `analysis.confirmGeneric {tabId, previewId, title, text}` | side panel / popup | Enqueue the generic offer; the URL is the one the worker captured from `tabs.get(tabId)` for `previewId` (A19) |
 | `analysis.reanalyze {jobId}` | card | Enqueue a `force` job (after cost confirmation in the UI) |
 | `analysis.cancel {jobId}` | card | Abort and persist `cancelled` |
 | `key.set {providerId, key, saveUnverified?}`, `key.validate {providerId}`, `key.remove {providerId}` | options | ADR-13 |
@@ -1154,7 +1223,10 @@ Schedule toggles, ToS accept/revoke, notifications, and the update-check toggle 
 | CSV formula injection | Neutralizing prefix | Unit |
 | Malicious or corrupt backup | Full validation before write; digest check; real-provider validation; consent and runtime state never restored; worker quiesced; single transaction | Integration: tampered digest leaves data unchanged; failure injected mid-import leaves data unchanged; imported file with `tos` and schedule set leaves both off |
 | Telemetry or exfiltration | Dependency denylist; `sendBeacon` ban; network allowlist | CI checks; E2E network audit (PRIV-1) |
-| Supply chain | Frozen lockfile; SHA-pinned actions; Dependabot; `pnpm audit`; CodeQL; release provenance attestation | CI |
+| Supply chain | Frozen lockfile; SHA-pinned actions; Dependabot; `pnpm audit`; CodeQL; release provenance attestation; dependency build scripts off and install-time scripts limited to `prepare`; exact manifest top-level key allowlist (A21) | CI; build tests `supply-chain.test.ts` and `manifest.test.ts` (A21) |
+| Page content steering navigation or egress | Navigation targets rebuilt from `(source, id)` with `canonicalFor`; strict Zod reader results with caps; generic URL from `tabs.get`; egress lint allowlist (ADR-14 item 7, A19) | Unit (reader schemas, `canonicalFor`); integration (scan driver navigates only rebuilt URLs); lint fixtures; E2E canary (zero requests, no tab, no link) |
+| Spoofed source host | `classifyHost` with WHATWG parsing, https only, apex-or-dot-suffix match, fail closed on userinfo, port, trailing dot, punycode (A20) | Unit negative vectors (Contract E); component (unverified chip as text) |
+| Invented candidate facts in the rationale | Step 8b rationale audit; `apply` downgraded to `review`; chip (ADR-29, A18) | Unit table (each assertion class, exclusions, number words, cache-hit consistency); component (chip) |
 | Test hooks in release | Build-time `E2E` define; fake provider only under `tests/` | Build test (ADR-28) |
 | ToS and account risk | Schedule off by default; ToS gate with version; caps; rate-courtesy pacing; first page only; wall stop | Gate and policy unit tests; E2E simulated wall leads to backoff and pause |
 | Personal data in the repo | secretlint, repository policy check (CI + pre-commit), clean-room rules, vendored-dir block | Threat Matrix RED tests |
@@ -1170,9 +1242,9 @@ Schedule toggles, ToS accept/revoke, notifications, and the update-check toggle 
 | Unit (DOM) | Portal readers and the generic main-content reader: ok, collapsed description, empty description, virtualized list, no results, unrecognized markup, wall pages | `// @vitest-environment jsdom`, `tests/fixtures/portals/<source>/*.html` |
 | Component | Review card states and contents (including "Skip - blocker found" and the injection chip), tracker list rendering of markup and failure flags, onboarding disclosure step, key warning adjacency and unverified flow, i18n switch, beta label | Vitest + Testing Library (jsdom) |
 | Integration | Dexie repos; every migration from every prior version; downgrade refusal; queue claim, lease, and recovery (BEACON-6 kill scenarios), including a worker killed mid-stream leaving an `interrupted` usage record counted by the budget; `AnalysisService` with the fake provider (one call, cache hit with recomputed PDF pick, force); unverified key promotion and invalidation; LRU at 2,000; PDF atomic replace with quota fault; tracker with 5,000 rows; failed scan offers (transient not seen, permanent flagged); backup round-trip, quiesce, consent reset, and failure injection; router sender rules and alarms with the WXT fake-browser (SHELL-4) | Vitest + `fake-indexeddb/auto` + `WxtVitest()` |
-| Build | Manifest allowlists, key, and CSP (Contract L); reader bundles contain no provider host, no `chrome.storage`, and no `secret:` (LLM-4); no E2E sentinel or fake provider id (ADR-28); release zip content (SHELL-6, sub-change 7) | `pnpm build && vitest run tests/build` |
+| Build | Manifest allowlists (permissions and top-level keys, A21), key, and CSP (Contract L); install-time script policy (SHELL-12, A21); reader bundles contain no provider host, no `chrome.storage`, and no `secret:` (LLM-4); no E2E sentinel or fake provider id (ADR-28); release zip content (SHELL-6, sub-change 7) | `pnpm build && vitest run tests/build` |
 | Lint fixtures | Each GritQL plugin and Biome rule fires on its positive fixture and not on its negative fixture; dependency-cruiser fails on a fixture import from `src/core` to `src/storage` | `vitest run tests/lint-fixtures` |
-| E2E smoke | Install ID equals the documented ID (two folders); onboarding with the stub provider server; manual analysis on a LinkedIn fixture; generic preview; save to tracker; backup round-trip; fixture scan with a simulated 429 leading to backoff and pause; network audit (PRIV-1, PORT-7) | Playwright, see the notes below |
+| E2E smoke | Install ID equals the documented ID (two folders); onboarding with the stub provider server; manual analysis on a LinkedIn fixture; generic preview; save to tracker; backup round-trip; fixture scan with a simulated 429 leading to backoff and pause; network audit (PRIV-1, PORT-7); page-content canary (PRIV-11, A19: zero requests to the canary host, no tab, no link) | Playwright, see the notes below |
 | Live (local only) | Provider smoke with a real key; one real LinkedIn read | `pnpm test:live`, env-gated, never in CI |
 | Manual | Edge smoke per release (SHELL-11) | `docs/release-checklist.md` + the release-notes field |
 
@@ -1243,7 +1315,7 @@ The hook is installed by `simple-git-hooks` (`pre-commit: pnpm lint-staged && pn
 
 ## Threat Matrix
 
-The extension runtime has no shell, subprocess, or VCS boundary. The **repository tooling** has one: the pre-commit hook (lint-staged running secretlint, then `scripts/check-repo-policy.ts --staged`) and the same checks in CI read the git index and classify files. The rows below apply to that tooling.
+The extension runtime has no shell, subprocess, or VCS boundary. The **repository tooling** has one: the pre-commit hook (lint-staged running secretlint, then `scripts/check-repo-policy.ts --staged`) and the same checks in CI read the git index and classify files. The first five rows apply to that tooling. Amendments A19-A21 add two rows: the extension runtime's navigation routing (tab URLs chosen from page-derived data) and the install-time lifecycle scripts that `pnpm install` executes.
 
 | Boundary | Applicability | Design response | Planned RED tests |
 |---|---|---|---|
@@ -1252,6 +1324,8 @@ The extension runtime has no shell, subprocess, or VCS boundary. The **repositor
 | Commit state | **Applicable**: the hook must scan exactly what will be committed | The policy check's `--staged` mode reads blobs from the index (`git diff --cached --name-only -z --diff-filter=ACMR` + `git show :<path>`) and honors `GIT_INDEX_FILE`. lint-staged hides unstaged changes before secretlint runs, so secretlint sees staged content. An empty index exits 0. | (1) A staged secret with a clean worktree fails. (2) A clean staged blob with a dirty worktree passes. (3) The `GIT_INDEX_FILE` override is honored by the policy check. (4) An empty index exits 0. (5) Renamed files are scanned. |
 | Push state | N/A: no tooling pushes; the release workflow reacts to a maintainer-pushed tag | - | - |
 | PR commands | N/A: no code composes `gh`/`git` PR commands; release creation uses a SHA-pinned action with fixed inputs | - | - |
+| Navigation routing from page content (amendments A19, A20) | **Applicable**: the scan driver and the generic flow route tabs and records by URL, and before A19 a reader-supplied URL reached `tabs.update` | Navigation targets come only from `canonicalFor(id)` (id matching `idPattern`) or a user-entered, normalized beacon search URL, then `isAllowedNavigation`, which requires `classifyHost(url).kind === 'portal'`. Page-supplied URLs are never navigated, fetched, or linked. Reader results failing strict Zod parsing are `unreadable`. Failure behavior: fail closed (no navigation, item dropped or run ends per BEACON-5/8), never a partial read. | (1) A search fixture whose card `href` points to `https://evil.example/jobs/view/123/` with id `123` makes the driver navigate only to `https://www.linkedin.com/jobs/view/123/`. (2) An id `123/../../x` or longer than 64 characters is dropped. (3) A reader result with an extra field fails the strict parse and yields `unreadable`. (4) Each `classifyHost` negative vector (Contract E) is rejected by the guard. (5) The generic flow ignores a reader-supplied URL and uses `tabs.get(tabId).url`. (6) E2E canary: zero requests to the canary host, no tab, no link. (7) Lint fixture: global `fetch` or `tabs.create` outside the allowlist fails. |
+| Install-time lifecycle scripts (amendment A21) | **Applicable**: `pnpm install` executes package lifecycle scripts, a process-integration boundary on every contributor machine and in CI | Dependency build scripts stay disabled (`allowBuilds` all `false`, no `dangerouslyAllowAllBuilds`); the root package runs only `prepare` = `simple-git-hooks`. Failure behavior: the build test fails naming the offending package or script. | (1) `allowBuilds: { x: true }` fails naming `x`. (2) `dangerouslyAllowAllBuilds: true` fails. (3) A root `postinstall` script fails. (4) `prepare` changed to another command fails. (5) The current repository passes. |
 
 ---
 
@@ -1298,6 +1372,8 @@ Each spike records its verdict in `docs/spikes/Sx.md`. A failed assumption requi
 | Strong evidence floor: at least 2 word tokens and 12 folded characters (walls; at least one kept requirement) | A10 |
 | Head kept by the cap: 8,000 characters; tail fills the rest of 11,000 minus the marker | A16 |
 | Unreadable shell: 1 re-navigation; 3 consecutive runs set `layoutSuspect` | A13 |
+| Ungrounded-claim samples: at most 5, each at most 40 characters; calendar years 1950-2099; number words one to twenty | A18 |
+| Reader result caps: id 64, title 300, company 200, location 200, text 50,000, 100 search items, 10 strategy names of 40 characters | A19 |
 
 **Design-level constants (not in the spec):**
 
@@ -1363,6 +1439,12 @@ Everything is **Create** unless marked. The repository is greenfield: only `.git
 | `docs/architecture.md`, `docs/{tos-risk,release-checklist}.md`, `docs/spikes/S1..S7.md`, `docs/media/**` | Create | Architecture overview with diagram; policy docs; spike verdicts; README media (sub-change 7) |
 | `docs/adr/NNNN-*.md` | Create (at archive) | One file per ADR, generated from this design when `extension-v1` is archived (ADR-27) |
 | `tests/fixtures/binary/ALLOWLIST` | Create | Binary policy allowlist |
+| `src/core/analysis/rationaleAudit.ts` | Create | Step 8b `auditRationale` (ADR-29, A18) |
+| `src/core/schemas/reader.ts` | Create | Strict reader result schemas with caps (ADR-14 item 7, A19) |
+| `src/core/registry.ts` | Create (extended) | Adds `classifyHost`, the portal apex table, and `KNOWN_ATS_APEXES` (A20); each adapter adds `idPattern` and `canonicalFor` (A19) |
+| `biome-plugins/restricted-egress.grit`, `tests/lint-fixtures/restricted-egress/**` | Create | Egress call-site allowlist (A19) |
+| `tests/build/manifest-rules.ts`, `tests/build/manifest.test.ts`, `tests/build/fixtures/manifest-extra-keys.json` | Modify / Create | Top-level key allowlist and its negative fixture (A21) |
+| `tests/build/supply-chain.test.ts` | Create | Install-time script policy (SHELL-12, A21) |
 | `.gitignore` | Modify | Denylist and build/test outputs |
 | `openspec/config.yaml` | Modify | Strict TDD and `testing.*` values (Testing Strategy) |
 
@@ -1393,6 +1475,15 @@ The first usable capability is manual analysis at the end of sub-change 4. Every
 - **The `usage` table lands in sub-change 3**, because onboarding already makes metered calls (PROFILE-2, LLM-8).
 - **There is no separate `offers` or `analyses` table.** The offer snapshot travels in the `analyze` job payload and in `trackerDetails`. Validated model output lives in `analysisCache`.
 
+**Slotting amendments A18-A21** (2026-10-18; sub-change 0 is merged, so every slot is in a not-yet-started sub-change except A21):
+
+| Amendment | Slot | What lands there |
+|---|---|---|
+| A21 | **New standalone foundation follow-up slice** (after 0e, before or alongside 2a; ~100-150 lines) | Top-level key allowlist in `manifest-rules.ts` plus its negative fixture; `tests/build/supply-chain.test.ts`. Uses only existing phase-0 infrastructure. The A19 egress lint plugin (~80 lines with fixtures) MAY ride in this slice, since Biome plugins already exist from 0b and the allowlisted paths need not exist yet. |
+| A18 | 2a (post-validation and verdict slices); 4 (review card) | Step 8b `auditRationale` and the `Diagnostics` field with the post-validation chain; `grounding_downgrade` with `deriveVerdict`; the rubric sentence with the prompt; the cache-hit consistency case with `derive`; the chip with the review card |
+| A19 | 2a (portal core); 4 (detail and generic readers, E2E); 6 (search reader, scan driver, E2E) | `RawSearchItem`, `idPattern`, `canonicalFor`, reader schemas in core; strict parsing in the activeTab reader; generic URL from `tabs.get` and the `confirmGeneric` payload; search reader returns ids; scan driver navigates only rebuilt URLs; canary E2E in the manual and scan E2E slices |
+| A20 | 2a (portal core); 4 (generic preview and card) | `classifyHost` with every negative vector, wired into `mapUrl` and the guard; `KNOWN_ATS_APEXES`; the unverified-source chip |
+
 ## Size Forecast
 
 Realistic authored changed lines, including tests and docs, excluding lockfiles and generated files. `sdd-tasks` refines these per slice.
@@ -1411,6 +1502,8 @@ Realistic authored changed lines, including tests and docs, excluding lockfiles 
 | **Total** | **~13,100-17,500** | **~36-48** |
 | Path to first usable capability (0 to 4) | ~7,900-10,500 | ~22-29 |
 
+Amendments A18-A21 add roughly 700-950 authored lines: A18 ~250-300 (2a, 4), A19 ~250-350 spread across 2a, 4, and 6 plus the lint plugin, A20 ~120-180 (2a, 4), A21 ~100-150 (standalone slice). Only A21 is a new slice; the rest grows existing slices, and `sdd-tasks` re-checks each against the 400-line budget.
+
 The proposal's 6,000-8,300 counted production code optimistically; tests, fixtures, and docs under strict TDD roughly double it. `400-line budget risk: High` for the umbrella; chaining is mandatory.
 
 ---
@@ -1419,7 +1512,7 @@ The proposal's 6,000-8,300 counted production code optimistically; tests, fixtur
 
 | ID | Design element | Sub | Verified by |
 |---|---|---|---|
-| SHELL-1 | Contract L (subdomain wildcard hosts); ADR-10 (no `contextMenus`); ADR-11 (no `unlimitedStorage`) | 0 (+3/4/6/7 origins) | Build test (exact allowlists, named failure); E2E denied-permission retry |
+| SHELL-1 | Contract L (subdomain wildcard hosts; top-level key allowlist, amendment A21); ADR-10 (no `contextMenus`); ADR-11 (no `unlimitedStorage`) | 0 (+3/4/6/7 origins; A21 follow-up slice) | Build test (exact allowlists, named failure; extra-keys fixture); E2E denied-permission retry |
 | SHELL-2 | ADR-15 | 0 | Build test (`key`, ID); E2E two folders |
 | SHELL-3 | ADR-08, ADR-10; popup status and card fallback; no `content_scripts` | 0, 4 | Build test; component test (fallback, no error) |
 | SHELL-4 | ADR-03 `ensureAlarms`; one step per event | 0, 4, 6 | Integration (fake-browser restart, no alarms by default, 3-step resume) |
@@ -1430,6 +1523,7 @@ The proposal's 6,000-8,300 counted production code optimistically; tests, fixtur
 | SHELL-9 | Docs (ADR-27) + `check-docs` | 0 (docs), 7 (check) | CI |
 | SHELL-10 | UpdateService, `update-check` alarm | 7 | Integration (fake clock: default off 48 h, 3 h limit, notice, offline) |
 | SHELL-11 | Release-notes template "Edge smoke" field; draft release | 7 | `check-docs`; release checklist |
+| SHELL-12 | Contract L install-time script policy; ADR-23, ADR-27; amendment A21 | A21 follow-up slice | Build test `supply-chain.test.ts` (table-driven negatives; current repo passes) |
 | LLM-1 | Contract A (`displayName`, priced `models`, `validateKey`, `complete` events + final `{json, usage, model}`); shared contract suite incl. test-only fake | 2b | Contract suite (missing `usage` fails, naming the field) |
 | LLM-2 | `anthropic.ts`; `assertSchemaCompatible`; no tools; S1 header | 2b | Recorded SSE fixtures; `minLength` rejected |
 | LLM-3 | `openai.ts`; `toStrictSchema` | 2b | Recorded SSE fixtures |
@@ -1452,15 +1546,16 @@ The proposal's 6,000-8,300 counted production code optimistically; tests, fixtur
 | ANALYSIS-2 | Contract B; ADR-14 | 2a | Unit (delimiter once); snapshot (byte-identical prefix); injected score rejected |
 | ANALYSIS-3 | `normalizeOfferText`, `capHeadTail` 11,000; amendments A2, A16 | 2a | Unit (cap, head and tail kept, `truncated`) |
 | ANALYSIS-4 | Contract C; amendments A3, A10 | 2a | One unit test per row + each spec scenario (incl. weak and uncited walls, no strong requirement) |
-| ANALYSIS-5 | `deriveVerdict` 70/40, reason, injection downgrade; amendment A12 | 2a | Unit table |
+| ANALYSIS-5 | `deriveVerdict` 70/40, reason, injection downgrade, grounding downgrade; amendments A12, A18 | 2a | Unit table (incl. both downgrades together: reason `injection_downgrade`) |
 | ANALYSIS-6 | `inferLanguage` on `fullText` | 2a (+7 ca) | Unit (4 scenarios) |
 | ANALYSIS-7 | `detectApplyWarnings` on `fullText` | 2a (+7 ca) | Unit (all scenarios + negatives + tail of a long text) |
 | ANALYSIS-8 | `pickPdf` | 2a | Unit |
 | ANALYSIS-9 | `cacheKey`; `analysisCache` stores `ValidatedOutput`, derive on hit, LRU 2,000; amendment A15 | 2a, 4 | Unit (key components, derive); integration (hit with changed PDFs, failures not cached, eviction) |
 | ANALYSIS-10 | `AnalysisResult`; `outputLanguage` | 2a | Unit (serialization completeness; Spanish instruction) |
+| ANALYSIS-11 | Contract C step 8b; ADR-29; amendment A18 | 2a | Unit table (each assertion class grounded and ungrounded, number words, exclusions, fit and walls untouched, no `invalid_output`); integration (cache hit keeps the downgrade) |
 | PORTAL-1 | `mapUrl` (subdomains); InfoJobs shapes `[S3]` | 2a, 7 | Unit (tracking params, `currentJobId`, idempotent, unsupported, country subdomain) |
 | PORTAL-2 | Contract E; adapter contract suite; `version` | 4 | Contract suite (plain text) |
-| PORTAL-3 | `readSearchResults` | 6, 7 | jsdom (25 -> 23, no results, unreadable) |
+| PORTAL-3 | `readSearchResults` returns ids only; worker builds `canonicalUrl` with `canonicalFor`; amendment A19 | 2a (`canonicalFor`), 6, 7 | jsdom (25 -> 23, no results, unreadable, foreign `href` ignored); integration (rebuilt URL) |
 | PORTAL-4 | `readDetail` (expand, 10 s wait, strategies) | 4, 7 | jsdom |
 | PORTAL-5 | `classify(tables, input)` precedence; `unreadable_shell` handling per amendment A13 | 2a (classify), 4, 7 (tables) | Unit table + challenge fixture |
 | PORTAL-6 | `guard.ts`; GritQL static check | 0, 2a | Unit; CI fixture |
@@ -1468,10 +1563,11 @@ The proposal's 6,000-8,300 counted production code optimistically; tests, fixtur
 | PORTAL-8 | LinkedIn fixture set | 4, 6 | Contract suite |
 | PORTAL-9 | InfoJobs adapter; `beta: true` label | 7 | Contract suite; component |
 | PORTAL-10 | Synthetic fixtures; secretlint and policy check | 0 | CI |
+| PORTAL-11 | `classifyHost` (Contract E); guard and `mapUrl` delegate to it; amendment A20 | 2a, 4 (chip) | Unit (every negative and positive vector) |
 | MANUAL-1 | Popup + side panel buttons; nothing runs idle | 4 | E2E |
 | MANUAL-2 | Supported-portal flow; gesture permission; wall message | 4 | E2E (happy path, permission, `login`) |
-| MANUAL-3 | `reader-generic` (`readMainContent`); preview; `canonicalizeGenericUrl` | 4 | E2E; unit (fragments -> same id) |
-| MANUAL-4 | Review card (wall skip shown distinctly, injection chip); amendment A12 | 4 | Component |
+| MANUAL-3 | `reader-generic` (`readMainContent`); preview; `canonicalizeGenericUrl` over `tabs.get(tabId).url`; unverified-source chip; amendments A19, A20 | 4 | E2E; unit (fragments -> same id); integration (reader URL ignored); component (chip as text) |
+| MANUAL-4 | Review card (wall skip shown distinctly, injection chip, unverified-figures chip, unverified-source chip); amendments A12, A18, A20 | 4 | Component |
 | MANUAL-5 | Card states; gate order | 4 | Component; integration (missing key: no read) |
 | MANUAL-6 | Save -> tracker upsert | 5 | Integration; E2E |
 | MANUAL-7 | `force` job (ADR-17) | 4 | Integration (1 call, cache replaced) |
@@ -1509,12 +1605,13 @@ The proposal's 6,000-8,300 counted production code optimistically; tests, fixtur
 | PRIV-8 | secretlint pattern rules; hashed denylist in `check-repo-policy` | 0 | Unit (synthetic samples, masked output, hashed denylist) |
 | PRIV-9 | Pre-commit hook; tracked/staged denylist fails | 0 | Threat Matrix RED tests |
 | PRIV-10 | PR template; filter PR authorship | 0, 6 | Template check; review |
+| PRIV-11 | ADR-14 item 7; reader schemas and `canonicalFor` (Contract E); egress lint (ADR-23); amendment A19 | A21 follow-up slice (lint), 2a, 4, 6 | Lint fixtures; unit; integration (scan driver); E2E canary |
 
 ---
 
 ## Spec amendments
 
-**A1-A5 are already applied to the specs.** A6-A17 are new requirement changes this design depends on; they must be applied to the specs before `sdd-tasks`. Every other requirement and every "(assumption)" value is adopted unchanged.
+**A1-A5 are already applied to the specs.** A6-A17 are new requirement changes this design depends on; they must be applied to the specs before `sdd-tasks`. Every other requirement and every "(assumption)" value is adopted unchanged. **A18-A21** (owner-requested planning amendment, 2026-10-18) are applied to the specs together with this design update. They adopt four ideas from MadsLorentzen/ai-job-search (MIT): candidate-side grounding, untrusted page content handled in code, source-host verification, and install-time supply-chain hygiene. Only the ideas are adopted; no code or text is copied, and each requirement and test is authored fresh (PRIV-7).
 
 | # | Req | Status | Change | Rationale |
 |---|---|---|---|---|
@@ -1535,6 +1632,10 @@ The proposal's 6,000-8,300 counted production code optimistically; tests, fixtur
 | A15 | ANALYSIS-9 | New | "A hit MUST return the stored result" becomes "The cache MUST store only the validated model output. A hit MUST return it with every derived field (verdict, language, apply warnings, recommended PDF) recomputed from the current offer text and profile data, without a provider call, flagged `cached: true` with zero incremental cost." Add scenario: GIVEN a cached result and a PDF added for the recommended branch and language WHEN the offer is analyzed again THEN the new PDF is recommended with `cached: true`. | PDFs are not in the profile version; stored derived fields go stale |
 | A16 | ANALYSIS-3, ANALYSIS-6, ANALYSIS-7 | New | ANALYSIS-3: "Truncation MUST keep the beginning and the end of the normalized text, joined by an elision marker." ANALYSIS-6 and ANALYSIS-7: "computed on the full normalized text, before truncation". Add scenario: GIVEN a 30,000-character offer whose last sentence asks for a cover letter WHEN analyzed THEN a `cover_letter` warning is reported and `truncated` is true. | Application instructions usually sit at the end of an offer; a head-only cap drops them |
 | A17 | beacon-scanning Purpose, BEACON-7 (wording only) | New | Replace "human-like pacing" with "rate-courtesy pacing (deliberately slow, randomized delays)". No behavior change. | The pacing exists to limit load and follow a conservative rate, not to disguise automation |
+| A18 | New ANALYSIS-11; ANALYSIS-4 (diagnostics); ANALYSIS-5; MANUAL-4 | Applied | New ANALYSIS-11 "Candidate-side grounding of the rationale": quantitative assertions in the rationale (durations, percentages, money amounts, calendar years) whose value is absent from the normalized offer text and the profile data are recorded as ungrounded claims; they MUST NOT cause `invalid_output`, change the score, fit, walls, or branch, or mark fit entries unmatched; an `apply` verdict MUST be downgraded to `review` with reason `grounding_downgrade`. ANALYSIS-5 adds the reason and precedence. MANUAL-4 adds the chip. (ADR-29, Contract C step 8b) | The chain grounded the offer side only; the rationale could assert candidate facts that neither the offer nor the profile contains. Marking fit `unmatched` was rejected because step 7 turns unmatched must-haves into walls. Idea credited to MadsLorentzen/ai-job-search (MIT). |
+| A19 | New PRIV-11; PORTAL-3; MANUAL-3 | Applied | New PRIV-11 "Page-derived content is data": page strings flow only to the LLM data block, storage, and text nodes; navigation targets are rebuilt from `(source, id)`; reader results are strictly parsed with caps; egress call sites are allowlisted by a lint rule; a canary E2E proves no request, tab, or link. PORTAL-3: search reading returns ids, and the canonical URL is built by the system from the id. MANUAL-3: the generic URL comes from the browser tab, not the reader. (ADR-14 item 7, Contract E, Contract M) | A reader-supplied `canonicalUrl` reached tab navigation behind only an https-and-host guard, and the generic preview URL also came from the page. Idea credited to MadsLorentzen/ai-job-search (MIT). |
+| A20 | New PORTAL-11; MANUAL-3; MANUAL-4 | Applied | New PORTAL-11 "Source-host verification": one host classifier (`portal`, `known_ats`, `unverified`) with WHATWG parsing, https only, exact apex or dot-suffix match, failing closed on userinfo, non-default port, trailing dot, and punycode; navigation requires `portal`. MANUAL-3/4: a non-blocking, text-rendered "Unverified source: <host>" chip for the generic fallback. (ADR-10, Contract E) | Host checks were stated as intent only; substring matching would accept `linkedin.com.evil.com`, `evil-linkedin.com`, and `linkedin.com@evil.example`. Idea credited to MadsLorentzen/ai-job-search (MIT). |
+| A21 | SHELL-1 (scenario); new SHELL-12 | Applied | SHELL-1 adds a scenario: an unexpected top-level manifest key (for example `web_accessible_resources` or `externally_connectable`) fails the manifest test, naming the key. New SHELL-12 "Install-time script policy": every dependency build-script approval is `false`, no allow-all switch, and the root package declares no install-time lifecycle script other than `prepare`. (ADR-23, ADR-27, Contract L) | Permission sets were already tested; new manifest surfaces and install-time scripts were not. Standalone slice on existing phase-0 infrastructure. Idea credited to MadsLorentzen/ai-job-search (MIT). |
 
 **Proposal alignment notes** (proposal wording, not requirements):
 
@@ -1571,6 +1672,8 @@ None block the design. Carried forward:
 
 - [ ] Product display name for the manifest and README ("CV Tracker" is the working name).
 - [ ] Owner acceptance of amendments A6-A17 and proposal notes P1-P5, which must be applied before `sdd-tasks`.
+- [ ] Contents of `KNOWN_ATS_APEXES` (A20): a short, freshly authored list; it is informational only, so an incomplete list only shows the unverified chip more often.
+- [ ] Whether the exact set of top-level keys WXT emits for the production build matches the A21 allowlist; the first run of the new test settles it, and any benign extra key is added with a rationale in the same PR.
 - [ ] S3/S5/S6 outcomes may change ADR-09, ADR-10, and ADR-11 (webRequest, background-tab behavior, gesture chaining, storage access level). The fallbacks are already specified.
 - [ ] Whether each source-ban pattern is reliably expressible as a GritQL plugin in the pinned Biome version (decided in sub-change 0; the per-pattern fallback is specified in ADR-23).
 - [ ] If sub-change 7 exceeds its forecast, whether the update check (Q9) moves post-v1.

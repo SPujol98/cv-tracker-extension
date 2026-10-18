@@ -53,7 +53,7 @@ Each adapter MUST implement: `matches(url)`, search-results reading, detail-page
 
 ### Requirement: PORTAL-3 Search-results reading
 
-Search reading MUST return, for the first page of results only, a de-duplicated list of `{ id, canonicalUrl, title, company, location? }`. It MUST handle lazily rendered or virtualized lists by reading only what the page has rendered and MUST NOT navigate to subsequent pages. A page that renders zero recognizable items MUST be reported as a typed failure `unreadable` rather than an empty success, unless the portal's explicit "no results" marker is present, in which case it is an empty success.
+Search reading MUST return, for the first page of results only, a de-duplicated list of `{ id, canonicalUrl, title, company, location? }`. (amendment A19) The reading code in the page MUST return only `{ id, title, company, location? }`; the system MUST discard items whose id does not match the adapter's identifier pattern and MUST build `canonicalUrl` from the id with the adapter's canonical form (PORTAL-1), never from a link or URL found in the page (PRIV-11). It MUST handle lazily rendered or virtualized lists by reading only what the page has rendered and MUST NOT navigate to subsequent pages. A page that renders zero recognizable items MUST be reported as a typed failure `unreadable` rather than an empty success, unless the portal's explicit "no results" marker is present, in which case it is an empty success.
 
 #### Scenario: Results with duplicates
 
@@ -72,6 +72,18 @@ Search reading MUST return, for the first page of results only, a de-duplicated 
 - GIVEN a fixture with a changed structure and no recognizable items or marker
 - WHEN read
 - THEN the result is failure `unreadable`
+
+#### Scenario: Canonical URL rebuilt from the id (amendment A19)
+
+- GIVEN a result card with id `123` whose link points to `https://evil.example/jobs/view/123/`
+- WHEN read and processed
+- THEN the item's `canonicalUrl` is the LinkedIn canonical view URL for id `123`
+
+#### Scenario: Malformed id discarded (amendment A19)
+
+- GIVEN a result card whose extracted id is `123/../../x`
+- WHEN read and processed
+- THEN that item is not returned
 
 ### Requirement: PORTAL-4 Detail-page reading
 
@@ -178,3 +190,26 @@ Fixtures MUST be synthetic or sanitized: they MUST NOT contain real people, real
 - GIVEN the fixtures directory
 - WHEN the personal-data scan (PRIV-8) runs
 - THEN it finds no email domain other than reserved example domains and no phone number outside reserved test ranges
+
+### Requirement: PORTAL-11 Source-host verification (amendment A20)
+
+A single pure function MUST classify a URL's host as `portal` (with its source), `known_ats`, or `unverified`, and every host decision (URL registry, navigation guard, generic fallback) MUST use it. It MUST parse with the WHATWG URL standard and MUST classify as `unverified`, failing closed without normalization: an unparseable URL, any scheme other than `https:`, a URL with user information, a URL with a non-default port, a hostname ending in a dot, and a hostname containing a punycode (`xn--`) label. Otherwise a host matches an apex domain only if it equals the apex or ends with `.` followed by the apex. Portal apexes are checked first, then a table of known applicant-tracking hosts; anything else is `unverified`. Reading and navigation MUST require `portal`. `known_ats` and `unverified` are informational only.
+
+#### Scenario: Spoofing vectors rejected
+
+- GIVEN the URLs `https://linkedin.com@evil.example/jobs/view/1/`, `https://linkedin.com.evil.com/`, `https://evil-linkedin.com/`, `https://www.linkedin.com./jobs/view/1/`, a punycode look-alike of `linkedin.com`, `http://www.linkedin.com/jobs/view/1/`, and `https://www.linkedin.com:8443/jobs/view/1/`
+- WHEN each is classified
+- THEN none is classified `portal`
+- AND the navigation guard rejects each
+
+#### Scenario: Genuine portal hosts accepted
+
+- GIVEN `https://linkedin.com/jobs/view/1/`, `https://www.linkedin.com/jobs/view/1/`, and a LinkedIn country subdomain URL
+- WHEN each is classified
+- THEN each is `portal` with source `linkedin`
+
+#### Scenario: Known applicant-tracking host
+
+- GIVEN an https URL on a subdomain of an apex listed in the known applicant-tracking table
+- WHEN classified
+- THEN the result is `known_ats`

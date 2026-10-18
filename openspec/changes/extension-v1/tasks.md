@@ -1,15 +1,15 @@
 # Tasks: extension-v1 - Public BYO-key MV3 job-offer analyzer and tracker
 
-Umbrella change. Sub-changes are the task groups below (0 foundation, 1 spikes, 2a engine-core, 2b providers, 3 profile + backup, 4 manual-analysis + queue, 5 tracker, 6 beacons + filter/policy, 7 parity-cutover). Inputs: `proposal.md`, `specs/*/spec.md` (amendments A1-A17 applied), `design.md`, `judgment-day-r1.md` (approved; suspects that were not adopted are notes only, see Notes).
+Umbrella change. Sub-changes are the task groups below (0 foundation, 1 spikes, 2a engine-core, 2b providers, 3 profile + backup, 4 manual-analysis + queue, 5 tracker, 6 beacons + filter/policy, 7 parity-cutover). Inputs: `proposal.md`, `specs/*/spec.md` (amendments A1-A21 applied; A18-A21 slotted by the tasks amendment of 2026-10-18, see "Amendment slotting A18-A21" below), `design.md`, `judgment-day-r1.md` (approved; suspects that were not adopted are notes only, see Notes).
 
 ## Review Workload Forecast
 
 | Field | Value |
 |-------|-------|
-| Estimated changed lines | ~17,000-20,000 authored (additions + deletions; tests, fixtures and docs included; lockfile and generated files excluded). Point estimate ~18,800 |
-| 400-line budget risk | High (umbrella). Every slice below is planned at or under 400 lines |
+| Estimated changed lines | ~18,400-21,900 authored (additions + deletions; tests, fixtures and docs included; lockfile and generated files excluded). Point estimate ~20,400 (was ~18,800 before amendments A18-A21, which add ~1,600) |
+| 400-line budget risk | High (umbrella). Every slice below is planned at or under 400 lines; 2a-5 and 2a-3 sit at the budget, with no headroom |
 | Chained PRs recommended | Yes (mandatory) |
-| Suggested split | 54 chained PR slices: 0a-0e, 1a-1b, 2a-1..2a-6, 2b-1..2b-4, 3-1..3-8, 4-1..4-7, 5-1..5-5, 6-1..6-10, 7-1..7-7 |
+| Suggested split | 64 chained PR slices: 0a-0f, 1a-1b, 2a-1..2a-9, 2b-1..2b-4, 3-1..3-8, 4-1..4-8 (plus 4-4a, 4-5a, 4-6a), 5-1..5-5, 6-1..6-11 (plus 6-6a), 7-1..7-7. Execution order of the inserted slices is given in "Dependencies and parallelism" |
 | Delivery strategy | auto-chain |
 | Chain strategy | stacked-to-main (owner, 2026-10-10) |
 
@@ -21,7 +21,8 @@ Chain strategy: stacked-to-main
 Notes on the forecast:
 
 - The design forecast was 13,100-17,500 lines in 36-48 slices. This breakdown is higher for three reasons: explicit RED test tasks (Threat Matrix, post-validation rows), the forced split of 2a (6 slices), 3 (8 slices) and 6 (10 slices) to stay under 400 lines, and a few helper files the design implies (shared provider HTTP helper). No scope was added.
-- Path to the first usable capability (sub-changes 0 to 4): about 11,200 lines in 30 slices (10,000-12,500).
+- Path to the first usable capability (sub-changes 0 to 4): about 12,600 lines in 38 slices (11,300-14,000; was 11,200 in 30 slices before A18-A21).
+- Amendments A18-A21 (2026-10-18) add 24 tasks and 10 slices, about 1,600 authored lines (range 1,400-1,900). The design estimated 700-950; the difference is the explicit RED tables and negative vectors that strict TDD requires (host-spoofing vectors, assertion classes, the install-time script table), plus the splitting overhead of keeping every slice at or under 400. Every slice that was already at 350-400 lines was split into a new slice instead of inflated; only edits of 35 lines or less were made in place (2a-1, 2a-2, 2a-4, 2a-5, 2a-6, 4-5, 6-5), each re-forecast below.
 - `Decision needed before apply` is `No` because the strategy is `auto-chain`. The one open input is the chain strategy (`stacked-to-main` or `feature-branch-chain`); the orchestrator must obtain it once before the first PR is opened. Recommendation: `stacked-to-main` (each slice is independently green under CI, the repository is greenfield, and branch protection applies from slice 0a). With `feature-branch-chain`, PR 0a targets the tracker branch and each later PR targets the immediately previous PR branch.
 - If sub-change 7 runs over its forecast, slice 7-4 (update check) is the first candidate to move post-v1 (owner decision Q9).
 
@@ -29,15 +30,39 @@ Notes on the forecast:
 
 | Sub-change | Slices | Estimated lines |
 |---|---|---|
-| 0 foundation | 5 (0a-0e) | ~1,600 |
+| 0 foundation | 6 (0a-0f) | ~1,840 (+240, A21 and the A19 egress lint plugin) |
 | 1 spikes | 2 (1a-1b) | ~550 |
-| 2a engine-core | 6 | ~2,230 |
+| 2a engine-core | 9 (2a-1..2a-9) | ~2,940 (+710: A18 in 2a-1/2a-2/2a-4/2a-5 and new 2a-7; A19 in 2a-6 and new 2a-9; A20 in 2a-6 and new 2a-8) |
 | 2b providers | 4 | ~1,510 |
 | 3 profile + backup | 8 | ~2,710 |
-| 4 manual-analysis + queue | 7 | ~2,580 |
+| 4 manual-analysis + queue | 11 (4-1..4-8, 4-4a, 4-5a, 4-6a) | ~3,040 (+460: A19 in 4-4a, 4-5, 4-5a, 4-8; A18 and A20 chips in 4-6a) |
 | 5 tracker | 5 | ~1,680 |
-| 6 beacons + filter/policy | 10 | ~3,520 |
+| 6 beacons + filter/policy | 12 (6-1..6-11, 6-6a) | ~3,730 (+210: A19 in 6-5, 6-6a, 6-11) |
 | 7 parity-cutover | 7 | ~2,410 |
+
+### Amendment slotting A18-A21 (slice forecasts after re-check against the 400-line budget)
+
+| Slice | Status | New forecast | Change |
+|---|---|---|---|
+| PR 0f | new | ~240 | A21 top-level key allowlist, install-time script policy, A19 egress lint plugin |
+| PR 2a-1 | edited in place | ~360 (was ~350) | `Diagnostics.ungroundedClaims` in the schema (2a.4) |
+| PR 2a-2 | edited in place | ~390 (was ~380) | rubric sentence in the prefix (2a.6) |
+| PR 2a-4 | edited in place | ~370 (was ~350) | `grounding_downgrade` in `deriveVerdict` (2a.11) |
+| PR 2a-5 | edited in place | ~400 (was ~400) | `derive` passes `diagnostics.ungroundedClaims.count` (one line, 2a.17); at the budget |
+| PR 2a-6 | edited in place | ~385 (was ~350) | `RawSearchItem`, `SearchItem`, `HostClass`, `idPattern`, `canonicalFor` types (2a.20) and registry `canonicalFor` (2a.21) |
+| PR 2a-7 | new | ~260 | A18 step 8b `auditRationale` and its wiring |
+| PR 2a-8 | new | ~220 | A20 `classifyHost`, `KNOWN_ATS_APEXES`, `mapUrl` and guard delegation |
+| PR 2a-9 | new | ~150 | A19 strict reader result schemas |
+| PR 4-4a | new | ~90 | A19 LinkedIn adapter `idPattern` and `canonicalFor` plus contract cases |
+| PR 4-5 | edited in place | ~350 (was ~300) | A19 strict parse of the activeTab reader result (4.11) |
+| PR 4-5a | new | ~120 | A19 generic URL from `tabs.get`, `previewId`, `confirmGeneric` payload; A20 host class in the preview |
+| PR 4-6a | new | ~110 | A18 "Unverified figures" chip, A20 "Unverified source" chip |
+| PR 4-8 | new | ~90 | A19 page-content canary E2E (manual flow) |
+| PR 6-5 | edited in place | ~380 (was ~350) | A19 search reader returns ids only (6.12, 6.13) |
+| PR 6-6a | new | ~100 | A19 scan driver navigates only rebuilt URLs |
+| PR 6-11 | new | ~80 | A19 page-content canary E2E (scan flow) |
+
+Slices 4-4 (~400), 4-6 (~400), 6-6 (~400), 6-7 (~400) and 2a-3 (~400) were already at the budget and are untouched. The A19 canary for the manual flow did not fit 4-7 (~330) and got its own slice 4-8; the scan canary did not fit 6-10 (~330) and became 6-11.
 
 ### Suggested Work Units
 
@@ -50,6 +75,7 @@ Focused test command is `pnpm vitest run <path>` unless stated; the full gate fo
 | 0c | Repo policy, deps check, secretlint, hooks | PR 0c | `pnpm vitest run tests/unit/repo-policy tests/unit/check-deps.test.ts` | `pnpm check:repo-policy --all`, `pnpm secretlint`, real `git commit` in a temp repo | `scripts/`, `.secretlintrc.json`, hook config |
 | 0d | Manifest, key script, settings, router/sender policy, alarms skeleton | PR 0d | `pnpm vitest run tests/build/manifest.test.ts tests/unit/router.test.ts` | `pnpm build` then `vitest run tests/build` | `wxt.config.ts`, `src/background`, `src/shared/messaging` |
 | 0e | i18n, Playwright loading, CI/CodeQL/Dependabot, docs skeleton | PR 0e | `pnpm vitest run tests/unit/i18n.test.ts tests/build/workflows.test.ts` | `pnpm e2e` loads the extension and compares IDs from two folders | `.github/`, `docs/`, `src/ui/i18n`, `tests/e2e` |
+| 0f | Manifest top-level key allowlist, install-time script policy, restricted-egress lint plugin (A21, A19) | PR 0f | `pnpm vitest run tests/build/manifest.test.ts tests/build/supply-chain.test.ts tests/lint-fixtures/gritql-egress.test.ts` | `pnpm build && pnpm vitest run tests/build`; `pnpm lint` | `tests/build/manifest-rules.ts`, `tests/build/supply-chain.test.ts`, `biome-plugins/restricted-egress.grit`, `biome.json` override |
 | 1a | S1 and S2 verdicts (provider streaming + structured output) | PR 1a | N/A (docs): `pnpm vitest run tests/unit/docs-skeleton.test.ts` | Owner-run spike branch against the real provider (needs authorization) | `docs/spikes/S1.md`, `S2.md` only |
 | 1b | S3, S4 (N/A), S5, S6, S7 verdicts and design amendments | PR 1b | N/A (docs) | Owner-run spike branches: live portal read, Playwright `route.fulfill`, popup gesture, forced worker stop | `docs/spikes/S3..S7.md`, `design.md` amendments |
 | 2a-1 | Core ports (runtime, llm), catalog types, cost math, text, analysis schemas | PR 2a-1 | `pnpm vitest run tests/unit/core/cost.test.ts tests/unit/core/text.test.ts tests/unit/core/schemas` | `pnpm test` (node project) | new `src/core` modules only |
@@ -57,7 +83,10 @@ Focused test command is `pnpm vitest run <path>` unless stated; the full gate fo
 | 2a-3 | Post-validation chain steps 1-8 | PR 2a-3 | `pnpm vitest run tests/unit/core/analysis/postValidate.test.ts` | per-row table tests | `postValidate.ts` |
 | 2a-4 | Verdict, injection signals, language, apply warnings, PDF pick | PR 2a-4 | `pnpm vitest run tests/unit/core/verdict.test.ts tests/unit/core/language.test.ts tests/unit/core/applyWarnings.test.ts` | table tests | independent modules |
 | 2a-5 | derive, analyzeOffer, test-only fake provider, golden fixtures | PR 2a-5 | `pnpm vitest run tests/unit/core/analysis/analyze.test.ts tests/unit/core/analysis/golden.test.ts` | golden synthetic fixtures with the fake provider | `analyze.ts`, `derive.ts`, `tests/support/fakeProvider.ts` |
-| 2a-6 | Portal core: types, registry, mapUrl, guard, classify; coverage gate | PR 2a-6 | `pnpm vitest run tests/unit/core/registry.test.ts tests/unit/core/guard.test.ts tests/unit/core/classify.test.ts` | `pnpm test --coverage` (90% for `src/core`) | portal core modules; coverage threshold |
+| 2a-6 | Portal core: types (incl. A19/A20 types), registry, mapUrl, canonicalFor, guard, classify; coverage gate | PR 2a-6 | `pnpm vitest run tests/unit/core/registry.test.ts tests/unit/core/guard.test.ts tests/unit/core/classify.test.ts` | `pnpm test --coverage` (90% for `src/core`) | portal core modules; coverage threshold |
+| 2a-7 | Rationale audit step 8b and its wiring (A18) | PR 2a-7 | `pnpm vitest run tests/unit/core/analysis/rationaleAudit.test.ts tests/unit/core/analysis/postValidate.audit.test.ts` | table tests per assertion class; cache-hit consistency through `derive` | `rationaleAudit.ts` and the 8b hook in `postValidate.ts` |
+| 2a-8 | `classifyHost`, `KNOWN_ATS_APEXES`, `mapUrl` and guard delegation (A20) | PR 2a-8 | `pnpm vitest run tests/unit/core/classifyHost.test.ts tests/unit/core/registry.test.ts tests/unit/core/guard.test.ts` | negative-vector table; `pnpm test --coverage` | `classifyHost` block in `registry.ts` and the delegation lines in `mapUrl`/`guard.ts` |
+| 2a-9 | Strict reader result schemas (A19) | PR 2a-9 | `pnpm vitest run tests/unit/core/schemas/reader.test.ts` | cap and unknown-field table; `pnpm test --coverage` | `src/core/schemas/reader.ts` |
 | 2b-1 | redact, SSE parser, schema helpers, shared HTTP helper, contract suite | PR 2b-1 | `pnpm vitest run tests/unit/shared/redact.test.ts tests/unit/core/sse.test.ts tests/contract` | contract suite against the fake (`transport: false`) | `src/providers/{schemaCompat,http}.ts`, `src/shared/redact.ts`, `src/core/sse.ts` |
 | 2b-2 | Anthropic adapter + recorded fixtures + record script | PR 2b-2 | `pnpm vitest run tests/contract/anthropic.contract.test.ts` | recorded SSE through fake fetch and fake clock | `src/providers/anthropic.ts`, fixtures |
 | 2b-3 | OpenAI adapter + recorded fixtures | PR 2b-3 | `pnpm vitest run tests/contract/openai.contract.test.ts` | recorded SSE through fake fetch and fake clock | `src/providers/openai.ts`, fixtures |
@@ -74,9 +103,13 @@ Focused test command is `pnpm vitest run <path>` unless stated; the full gate fo
 | 4-2 | QueueRunner, heartbeat, recovery, ensureAlarms queue-wake | PR 4-2 | `pnpm vitest run tests/integration/queueRunner.test.ts` | fake-browser restart and 3-step kill/resume | `queueRunner.ts`, `heartbeat.ts`, alarms |
 | 4-3 | analysisCache, logs, AnalysisService, cancel, re-analyze | PR 4-3 | `pnpm vitest run tests/integration/analysisService.test.ts tests/integration/analysisCache.test.ts` | fake provider; fake-indexeddb | analysis service + cache repo |
 | 4-4 | LinkedIn detail reader, tables, adapter, reader bundle, contract suite | PR 4-4 | `pnpm vitest run tests/contract/portalAdapter.linkedin.test.ts tests/build/readers.test.ts` | jsdom fixtures; `pnpm build` then reader-bundle grep | `src/portals/linkedin/**`, `reader-linkedin.ts` |
-| 4-5 | activeTab reader, generic reader, analysis commands | PR 4-5 | `pnpm vitest run tests/integration/activeTabReader.test.ts tests/unit/portals/generic.test.ts` | fake-browser scripting | `activeTabReader.ts`, `src/portals/generic/**` |
+| 4-4a | LinkedIn adapter `idPattern`, `canonicalFor`, contract cases (A19) | PR 4-4a | `pnpm vitest run tests/contract/portalAdapter.linkedin.test.ts` | jsdom fixtures with foreign `href` cards | `idPattern`/`canonicalFor` in `src/portals/linkedin/adapter.ts`, contract additions |
+| 4-5 | activeTab reader (strict result parse, A19), generic reader, analysis commands | PR 4-5 | `pnpm vitest run tests/integration/activeTabReader.test.ts tests/unit/portals/generic.test.ts` | fake-browser scripting | `activeTabReader.ts`, `src/portals/generic/**` |
+| 4-5a | Generic URL from `tabs.get`, `previewId`, `confirmGeneric` payload, host class in the preview (A19, A20) | PR 4-5a | `pnpm vitest run tests/integration/genericPreview.test.ts` | fake-browser `tabs.get` and `storage.session`; reader returning a spoofed URL | `src/background/services/genericPreview.ts`, `analysis.confirmGeneric` payload |
 | 4-6 | Review card, popup/side panel wiring, optional LinkedIn host | PR 4-6 | `pnpm vitest run tests/component/reviewCard.test.tsx tests/component/popup.test.tsx` | Testing Library; `tests/build/manifest.test.ts` | `src/ui/components/card/**`, popup/sidepanel entrypoints |
+| 4-6a | Review-card chips: unverified figures, unverified source (A18, A20) | PR 4-6a | `pnpm vitest run tests/component/chips.test.tsx` | Testing Library with hostile strings | `src/ui/components/card/Chips.tsx` and its i18n keys |
 | 4-7 | E2E manual analysis, network and persistence audits | PR 4-7 | `pnpm vitest run tests/integration/persistence-audit.test.ts` | `pnpm e2e` (e2e build, local fixture server, `route.fulfill` portal) | `tests/e2e/**` only |
+| 4-8 | Page-content canary E2E, manual flow (A19) | PR 4-8 | `pnpm e2e -- canary-manual` | `pnpm e2e` with a canary offer fixture and request recorder | `tests/e2e/canary-manual.spec.ts` and fixtures only |
 | 5-1 | Dexie v3, tracker schema and repo, Save upsert | PR 5-1 | `pnpm vitest run tests/integration/trackerRepo.test.ts tests/integration/migrations.v3.test.ts` | fake-indexeddb with quota fault | tracker tables (v3: revert only before release) |
 | 5-2 | Tracker queries, pagination, notes, delete | PR 5-2 | `pnpm vitest run tests/integration/trackerQuery.test.ts` | 5,000-row seed | query module |
 | 5-3 | Save-to-tracker action and tracker list UI | PR 5-3 | `pnpm vitest run tests/component/tracker` | Testing Library | `src/ui/components/tracker/**` |
@@ -86,12 +119,14 @@ Focused test command is `pnpm vitest run <path>` unless stated; the full gate fo
 | 6-2 | Dexie v4, beacon types, repos, normalizeSearchUrl | PR 6-2 | `pnpm vitest run tests/integration/beaconsRepo.test.ts tests/integration/migrations.v4.test.ts` | fake-indexeddb | beacon tables (v4: revert only before release) |
 | 6-3 | Scan gate and wall ladder | PR 6-3 | `pnpm vitest run tests/unit/core/beaconGate.test.ts tests/unit/core/wallLadder.test.ts` | fake clock | `beaconPolicy.ts` gate part |
 | 6-4 | Schedule math, caps, ToS version | PR 6-4 | `pnpm vitest run tests/unit/core/schedule.test.ts` | seeded RNG, fake clock | `beaconPolicy.ts` schedule part |
-| 6-5 | LinkedIn search reader | PR 6-5 | `pnpm vitest run tests/contract/portalAdapter.linkedin.test.ts` | jsdom search fixtures | search reader and tables |
+| 6-5 | LinkedIn search reader (ids only, A19) | PR 6-5 | `pnpm vitest run tests/contract/portalAdapter.linkedin.test.ts` | jsdom search fixtures | search reader and tables |
 | 6-6 | ScanTabDriver and webRequest fail-closed | PR 6-6 | `pnpm vitest run tests/integration/scanTabDriver.test.ts` | fake-browser tabs and webRequest | `scanTabDriver.ts` |
+| 6-6a | Scan driver navigates only rebuilt URLs (A19) | PR 6-6a | `pnpm vitest run tests/integration/scanTabDriver.rebuilt.test.ts` | fake-browser tabs; foreign-host items | `navigateDetail` in `scanTabDriver.ts` |
 | 6-7 | Scan services and failed-offer flow | PR 6-7 | `pnpm vitest run tests/integration/scanService.test.ts` | fake-browser + fake provider + kill scenarios | scan services |
 | 6-8 | Alarms, schedule enable/disable, notifications, badge | PR 6-8 | `pnpm vitest run tests/integration/beaconAlarms.test.ts` | WXT fake-browser alarms | `alarms.ts` additions, `notifications.ts`, `badge.ts` |
 | 6-9 | Beacons UI and ToS screen | PR 6-9 | `pnpm vitest run tests/component/beacons tests/component/tosScreen.test.tsx` | Testing Library | `src/ui/components/beacons/**` |
 | 6-10 | E2E simulated wall, network audit, backup of beacons/seen | PR 6-10 | `pnpm vitest run tests/integration/backupBeacons.test.ts` | `pnpm e2e` simulated 429 leads to backoff and pause | E2E specs, backup collections |
+| 6-11 | Page-content canary E2E, scan flow (A19) | PR 6-11 | `pnpm e2e -- canary-scan` | `pnpm e2e` with a canary search fixture and request recorder | `tests/e2e/canary-scan.spec.ts` and fixtures only |
 | 7-1 | InfoJobs adapter (beta) | PR 7-1 | `pnpm vitest run tests/contract/portalAdapter.infojobs.test.ts` | jsdom InfoJobs fixtures | `src/portals/infojobs/**` |
 | 7-2 | Catalan content | PR 7-2 | `pnpm vitest run tests/unit/core/language.test.ts tests/unit/core/applyWarnings.test.ts` | table tests | `ca` table entries |
 | 7-3 | CSV history import | PR 7-3 | `pnpm vitest run tests/unit/core/csvImport.test.ts tests/integration/historyImport.test.ts` | fake-indexeddb | `historyImport.ts`, mapping UI |
@@ -108,6 +143,7 @@ Default topology is one writer in sequence. Items marked parallel-eligible could
 - Parallel-eligible: sub-change 1 (spikes) alongside 2a after 0 is complete. S1 and S2 must finish (and amend the design if they fail) before 2b-2/2b-3. S6 must finish before 3-2 (PDF caps) and before the 0.23 follow-up. S3, S5 and S7 must finish before 4-2/4-4/4-6. S3 InfoJobs items must finish before 7-1.
 - Inside 6: 6-1, 6-3 and 6-4 are pure and parallel-eligible with 6-2. 6-5 needs the 4-4 reader base. 6-6 needs the S3 verdict.
 - Inside 7: 7-2, 7-3 and 7-4 are independent of each other; 7-5 precedes 7-6; 7-7 is last.
+- Inserted slices (A18-A21) and their execution order: 0f runs after 0e and before 2a (it only needs phase-0 infrastructure; it is parallel-eligible with sub-change 1). In 2a the order is 2a-1..2a-6, then 2a-7 (needs 2a-3 and 2a-5), 2a-8 (needs 2a-6; rewires `mapUrl` and the guard), 2a-9 (needs 2a-6 types). In 4 the order is 4-1..4-4, 4-4a (needs 4-4 and 2a-6), 4-5 (needs 2a-9), 4-5a (needs 4-5, 2a-8, 4-3), 4-6, 4-6a (needs 4-6, 2a-7, 2a-8), 4-7, 4-8 (needs 4-7). In 6 the order is 6-1..6-6, 6-6a (needs 6-6, 4-4a), 6-7..6-10, 6-11 (needs 6-10, 6-6a). Within a sub-change a letter-suffixed slice follows the slice it extends.
 - Bottlenecks: 4-1/4-2 (queue) gate everything after 3; 6-7 consumes 6-2..6-6; the owner-run items (key generation 0.20, spikes, record-provider, parity run) block on the owner, not on code.
 
 ### Conventions for every task
@@ -123,7 +159,9 @@ Default topology is one writer in sequence. Items marked parallel-eligible could
 
 | Type | Defined in | File | Notes |
 |---|---|---|---|
-| `Diagnostics`, `ValidatedOutput`, `AnalysisResult`, `AnalysisFailure` | 2a-1 task 2a.4 | `src/core/schemas/analysis.ts` | `Diagnostics = { droppedRequirements, droppedWalls: { ungrounded, weakEvidence, uncited }, removedClaimIds, unmatchedFit }` |
+| `Diagnostics`, `ValidatedOutput`, `AnalysisResult`, `AnalysisFailure` | 2a-1 task 2a.4 | `src/core/schemas/analysis.ts` | `Diagnostics = { droppedRequirements, droppedWalls: { ungrounded, weakEvidence, uncited }, removedClaimIds, unmatchedFit, ungroundedClaims: { count, samples } }` (A18; `ungroundedClaims` is `{ count: 0, samples: [] }` until 2a-7 fills it) |
+| `RawSearchItem`, `SearchItem`, `HostClass`, `idPattern`/`canonicalFor` on `PortalAdapter` | 2a-6 task 2a.20 | `src/core/ports/portal.ts` | A19, A20; `classifyHost` itself lands in 2a-8 |
+| Strict reader result schemas | 2a-9 task 2a.31 | `src/core/schemas/reader.ts` | A19; `parseSearchResult` takes the adapter `idPattern` as a parameter |
 | `CvPdfMeta`, `TitleFilter`, `Branch`, `Claim`, `Profile` | 2a-2 task 2a.5 | `src/core/schemas/profile.ts` | `CvPdfMeta` = `CvPdf` minus `blob` (needed by `pickPdf`); `TitleFilter` is needed by `Branch`; 3 adds the stored `CvPdf` row with `blob`; 6-1 `filter.ts` imports `TitleFilter` |
 | `RetryPolicy`, `GateReason`, `GateFailure`, `Job` and queue types | 4-1 task 4.2 | `src/core/queue/types.ts` | `GateFailure = { ok: false; reason: GateReason; deferUntil?: number; endRun: boolean }`; 6-3 `canRunPortalStep` returns `{ ok: true } \| GateFailure` and imports from here |
 | `Beacon`, `BeaconRuntime`, `ScanState`, `ScanSettings`, `TosAcceptance` | 6-2 task 6.4 | `src/core/schemas/beacon.ts`, `src/core/schemas/settings.ts` | settings gain `tos` and `scan` here |
@@ -256,6 +294,32 @@ Exit: `pnpm test` green with strict TDD recorded; CI, CodeQL, Dependabot, policy
   - Files: `CONTRIBUTING.md`
   - Do: document the required status checks (all CI steps, CodeQL) and ask the owner to enable branch protection on `main`. Record the confirmation in the PR description. No repository setting is changed by the agent.
 
+### PR 0f - Manifest key allowlist, install-time script policy, egress lint (~240 lines; amendments A19, A21)
+
+Follow-up foundation slice. It uses only phase-0 infrastructure (`manifest-rules.ts`, the Biome plugin setup from 0b, the existing repo files) and does not depend on sub-change 1 or 2a.
+
+- [ ] 0.29 RED: manifest top-level key allowlist (SHELL-1; amendment A21)
+  - Files: `tests/build/manifest.test.ts`, `tests/build/manifest-rules.ts`, `tests/build/fixtures/manifest-extra-keys.json`
+  - RED: `checkManifest` fails with `unexpected manifest key: <key>` for a fixture manifest that adds `web_accessible_resources` and `externally_connectable` (one failure per key, each named); further table-driven keys fail by name: `content_scripts`, `update_url`, `chrome_url_overrides`, `devtools_page`, `sandbox`, `declarative_net_request`, `oauth2`; a manifest containing only keys from the Contract L allowlist passes; `host_permissions` is allowed as a key only when absent or empty. Fails today because `manifest-rules.ts` has no key check.
+- [ ] 0.30 GREEN: top-level key allowlist in `manifest-rules.ts` (SHELL-1; amendment A21)
+  - Files: `tests/build/manifest-rules.ts`, `tests/build/manifest.test.ts`
+  - Do: add the exact allowlist from Contract L (`manifest_version`, `name`, `description`, `version`, `version_name`, `default_locale`, `key`, `minimum_chrome_version`, `icons`, `action`, `background`, `side_panel`, `options_ui`, `options_page`, `commands`, `permissions`, `optional_permissions`, `optional_host_permissions`, `host_permissions`, `content_security_policy`) with a comment that adding a key needs a rationale in the same PR; wire it into the real-build assertion.
+  - Accept: 0.29 green; `pnpm build && pnpm vitest run tests/build/manifest.test.ts` green on the real output. If WXT emits a benign extra key, add it to the allowlist with its rationale in this PR (design open question closed here).
+- [ ] 0.31 RED: install-time script policy (SHELL-12; amendment A21)
+  - Files: `tests/build/supply-chain.test.ts`
+  - RED (pure `checkSupplyChain(files)` over in-memory objects, table-driven): an `allowBuilds` entry set to `true` or to any non-`false` value fails naming the package; `dangerouslyAllowAllBuilds` in `pnpm-workspace.yaml` fails; `dangerously-allow-all-builds` in `.npmrc` fails; a `pnpm` field with `onlyBuiltDependencies` or `neverBuiltDependencies` in `package.json` fails; each of `preinstall`, `install`, `postinstall`, `preprepare`, `postprepare`, `prepublish`, `prepack`, `postpack` in `scripts` fails naming the key; `prepare` other than exactly `simple-git-hooks` fails; a clean fixture passes. A final test reads the repository's own `pnpm-workspace.yaml`, `.npmrc` and `package.json` and expects pass.
+- [ ] 0.32 GREEN: `checkSupplyChain` and CI wiring (SHELL-12; amendment A21)
+  - Files: `tests/build/supply-chain.test.ts`, `pnpm-workspace.yaml` (read-only), `.npmrc` (read-only), `package.json` (read-only)
+  - Do: implement `checkSupplyChain` beside the test (same pure-function pattern as `checkManifest`; no build needed). `tests/build` already runs in CI after the build step (0.26), so no workflow change is needed.
+  - Accept: 0.31 green against the repository files. If the repository files fail, fix the offending policy line in this PR and record it in the PR description.
+- [ ] 0.33 RED: restricted-egress lint fixtures (PRIV-11; ADR-14 item 7, ADR-23; amendment A19)
+  - Files: `tests/lint-fixtures/gritql-egress.test.ts`, `tests/lint-fixtures/restricted-egress/*.ts`
+  - RED (Biome with the plugin, fixtures linted under their stated paths via `--stdin-file-path`): global `fetch(...)`, `new XMLHttpRequest()`, `new WebSocket(...)`, `new EventSource(...)`, `window.open(...)`, `chrome.tabs.create(...)`, `chrome.tabs.update(...)` and `browser.tabs.create(...)` each fail under `src/ui/x.ts`; the same code passes under each allowlisted path (`src/background/services/providerGateway.ts`, `src/background/services/update.ts`, `src/background/scanTabDriver.ts`, `src/e2e/overrides.ts`); `deps.fetch(...)` in `src/providers/x.ts` passes; a property named `fetch` on a local object passes.
+- [ ] 0.34 GREEN: `restricted-egress` GritQL plugin and allowlist override (PRIV-11; amendment A19)
+  - Files: `biome-plugins/restricted-egress.grit`, `biome-plugins/README.md`, `biome.json`
+  - Do: the plugin flags the listed patterns; the `biome.json` `overrides` entry disables it only for the four allowlisted paths (the paths need not exist yet). Same per-pattern fallback as the other plugins: a pattern the pinned Biome cannot express reliably is recorded in `biome-plugins/README.md` and implemented as a TypeScript-AST check in `scripts/check-ast-bans.ts` (created by 0.6 only if it was needed there; otherwise created here with its RED test).
+  - Accept: 0.33 green; `pnpm lint` green on the existing tree.
+
 ---
 
 ## Phase 1: Sub-change 1 `spikes`
@@ -308,7 +372,7 @@ Each spike: write the hypothesis and pass/fail criteria in `docs/spikes/Sx.md` f
 
 Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage at or above 90% lines.
 
-### PR 2a-1 - Ports, cost, text, schemas (~350 lines)
+### PR 2a-1 - Ports, cost, text, schemas (~360 lines)
 
 - [ ] 2a.1 Core ports and catalog types (ADR-01, Contract A)
   - Files: `src/core/ports/runtime.ts`, `src/core/pricing/catalog.ts`, `src/core/ports/llm.ts`, `tests/unit/core/ports.test.ts`
@@ -319,18 +383,18 @@ Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage
 - [ ] 2a.3 Text normalization and folding (ANALYSIS-3; A2, A3, A16)
   - Files: `src/core/text.ts`, `tests/unit/core/text.test.ts`
   - RED: `normalizeOfferText` (NFC, zero-width and invisible format characters removed, whitespace collapsed, trimmed, no cap); `fold` maps typographic quotes, apostrophes and dashes to ASCII and lowercases; `words`; `capHeadTail(fullText, 11_000)` keeps the first 8,000 characters and the tail that fills the rest minus the `" […] "` marker, both cut at whitespace, `truncated: true`; text at or under the cap is untouched.
-- [ ] 2a.4 Analysis schemas (ANALYSIS-1, ANALYSIS-10; defines `Diagnostics`)
+- [ ] 2a.4 Analysis schemas (ANALYSIS-1, ANALYSIS-10, ANALYSIS-11; A18; defines `Diagnostics`)
   - Files: `src/core/schemas/analysis.ts`, `tests/unit/core/schemas/analysis.test.ts`
-  - RED: `OfferAnalysisOutput` is strict and requires every field including `walls[].basis` and `walls[].ref`; extra keys fail; `AnalysisResult` serialization round-trips with every ANALYSIS-10 field; `AnalysisFailure` has no verdict; `Diagnostics` is always present on success.
+  - RED: `OfferAnalysisOutput` is strict and requires every field including `walls[].basis` and `walls[].ref`; extra keys fail; `AnalysisResult` serialization round-trips with every ANALYSIS-10 field; `AnalysisFailure` has no verdict; `Diagnostics` is always present on success and includes `ungroundedClaims: { count, samples }` (A18: `samples` at most 5 entries of at most 40 characters; a longer sample or a sixth entry fails parsing; the default for a fresh result is `{ count: 0, samples: [] }`).
 
-### PR 2a-2 - Profile schema, profileVersion, prompt, cache key (~380 lines)
+### PR 2a-2 - Profile schema, profileVersion, prompt, cache key (~390 lines)
 
 - [ ] 2a.5 Profile schemas, `profileVersion`, `dealbreakerRefs` (PROFILE-8; A4; defines `CvPdfMeta`, `TitleFilter`)
   - Files: `src/core/schemas/profile.ts`, `src/core/analysis/profileVersion.ts`, `tests/unit/core/profileVersion.test.ts`
   - RED: deterministic for identical content; changes on claim statement, tags, set membership, branch name, rules, dealbreakers and output language; does not change on PDF changes, titleFilter or blocklist; independent of insertion order; `dealbreakerRefs` yields `<branchId>/d<index>` stable per version; claim and branch id patterns `c-<n>`, `b-<n>`.
-- [ ] 2a.6 Prompt builder and output schema (ANALYSIS-2, ANALYSIS-3, ANALYSIS-10; ADR-14)
+- [ ] 2a.6 Prompt builder and output schema (ANALYSIS-2, ANALYSIS-3, ANALYSIS-10, ANALYSIS-11; ADR-14, ADR-29; A18)
   - Files: `src/core/analysis/prompt.ts`, `src/core/analysis/outputSchema.ts`, `tests/unit/core/analysis/prompt.test.ts`
-  - RED: the prefix is byte-identical across offers for the same `(snapshot, outputLanguage, PROMPT_VERSION)`; claims and branches are sorted by id; every case-insensitive `</offer_data` in the offer text and in `source`/`title`/`company` is rewritten and the closing delimiter appears exactly once; attributes are escaped; a snapshot test maps the template hash to `PROMPT_VERSION` so a template or output-schema change without a bump fails; Spanish output-language instruction present when `outputLanguage` is `es`.
+  - RED: the prefix is byte-identical across offers for the same `(snapshot, outputLanguage, PROMPT_VERSION)`; claims and branches are sorted by id; every case-insensitive `</offer_data` in the offer text and in `source`/`title`/`company` is rewritten and the closing delimiter appears exactly once; attributes are escaped; a snapshot test maps the template hash to `PROMPT_VERSION` so a template or output-schema change without a bump fails; Spanish output-language instruction present when `outputLanguage` is `es`; the rubric (prefix block 0) contains the A18 sentence that figures in the rationale must come from the offer or the listed claims (asserted by a substring test on the built prefix). `PROMPT_VERSION` stays `analysis-2` because 2a-2 has not merged; if it merges before this edit lands, the sentence bumps the version and the snapshot test records it.
 - [ ] 2a.7 Cache key (ANALYSIS-9; interpretation (a))
   - Files: `src/core/analysis/cacheKey.ts`, `tests/unit/core/analysis/cacheKey.test.ts`
   - RED: `sha256(requestText \0 qualifiedModelId \0 promptVersion \0 profileVersion)`; each component change changes the key; the qualified id is `<provider>/<model>`.
@@ -348,11 +412,11 @@ Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage
   - Do: implement the ordered chain returning `ValidatedOutput` with diagnostics; pure, no clamping, no retries.
   - Accept: 2a.8 and 2a.9 green.
 
-### PR 2a-4 - Verdict, injection signals, language, warnings, PDF (~350 lines)
+### PR 2a-4 - Verdict, injection signals, language, warnings, PDF (~370 lines)
 
-- [ ] 2a.11 Verdict (ANALYSIS-5; A12)
+- [ ] 2a.11 Verdict (ANALYSIS-5; A12, A18)
   - Files: `src/core/analysis/verdict.ts`, `tests/unit/core/verdict.test.ts`
-  - RED table: 85, 70, 69, 40, 39; any accepted wall gives `skip` with reason `wall`; `apply` with injection suspected gives `review` with `injection_downgrade`; signals never upgrade and never add walls.
+  - RED table: 85, 70, 69, 40, 39; any accepted wall gives `skip` with reason `wall`; `apply` with injection suspected gives `review` with `injection_downgrade`; signals never upgrade and never add walls. A18 rows: input gains `ungroundedClaims: number`; score 85 with `ungroundedClaims: 2` gives `review` with `grounding_downgrade`; score 85 with both injection suspected and `ungroundedClaims: 2` gives `review` with `injection_downgrade` (injection takes precedence as the recorded reason); `ungroundedClaims > 0` never changes a `review` or `skip` (scores 69, 40, 39 and a wall case keep their verdict and reason) and never creates a wall; `VerdictReason` is exactly `wall | score | injection_downgrade | grounding_downgrade`.
 - [ ] 2a.12 Injection signals (ADR-14; A12)
   - Files: `src/core/injectionSignals.ts`, `tests/unit/core/injectionSignals.test.ts`
   - RED: EN and ES phrase table positives ("ignore previous instructions", "you are now", "output score ..."), benign negatives, matches are short excerpts; computed over the full normalized text. Catalan entries wait for 7-2.
@@ -371,9 +435,9 @@ Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage
 - [ ] 2a.16 Test-only fake provider (ADR-28)
   - Files: `tests/support/fakeProvider.ts`, `tests/unit/support/fakeProvider.test.ts`
   - RED: implements `LlmProvider` with a plain-string `id`, scripted progress and final events, scripted `ProviderError`s, counts calls. Lives only under `tests/`.
-- [ ] 2a.17 `derive` (steps 9-13; ANALYSIS-9; A15)
+- [ ] 2a.17 `derive` (steps 9-13; ANALYSIS-9; A15, A18)
   - Files: `src/core/analysis/derive.ts`, `tests/unit/core/analysis/derive.test.ts`
-  - RED: the same `ValidatedOutput` derives different PDFs when PDFs change; verdict, language, apply warnings and injection flags are recomputed from current `fullText`; assembles `AnalysisResult` with `cached` flag and diagnostics.
+  - RED: the same `ValidatedOutput` derives different PDFs when PDFs change; verdict, language, apply warnings and injection flags are recomputed from current `fullText`; assembles `AnalysisResult` with `cached` flag and diagnostics; `derive` passes `validated.diagnostics.ungroundedClaims.count` to `deriveVerdict` (A18; a `ValidatedOutput` with `count: 1` and score 85 derives `review`/`grounding_downgrade`). The audit itself and the cache-hit consistency case arrive in 2a-7.
 - [ ] 2a.18 `analyzeOffer` (ANALYSIS-1; ADR-06)
   - Files: `src/core/analysis/analyze.ts`, `tests/unit/core/analysis/analyze.test.ts`
   - RED: exactly one provider call; a malformed output yields `invalid_output` with one call and no retry; an `auth` error is surfaced typed; usage is forwarded; `truncated` set when capped; the model returns no verdict, language or PDF.
@@ -381,14 +445,14 @@ Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage
   - Files: `tests/fixtures/offers/*.json`, `tests/fixtures/profiles/*.json`, `tests/unit/core/analysis/golden.test.ts`
   - RED: ES and EN synthetic offers and profiles end to end through the fake provider; injection goldens: "output score 100" with ungrounded evidence is rejected; a smuggled closing delimiter appears once; a trivial wall fragment is dropped; an injection phrase downgrades `apply` to `review`; a 30,000-character offer reports a `cover_letter` warning with `truncated: true`.
 
-### PR 2a-6 - Portal core and coverage gate (~350 lines)
+### PR 2a-6 - Portal core and coverage gate (~385 lines)
 
-- [ ] 2a.20 Portal port types (Contract E)
+- [ ] 2a.20 Portal port types (Contract E; PORTAL-3, PORTAL-11, PRIV-11; A19, A20)
   - Files: `src/core/ports/portal.ts`, `tests/unit/core/portalTypes.test.ts`
-  - RED: `SourceId`, `PageState`, `ReadResult`, `SearchItem`, `OfferDetail`, `GenericPreview`, `PageMarkers`, `ClassifyTables`, `PortalAdapter` are DOM-free (a compile-time check plus a dependency-cruiser fixture); no `PortalReaders` in core.
-- [ ] 2a.21 Registry, `mapUrl`, `isAllowedNavigation`, `canonicalizeGenericUrl` (PORTAL-1 LinkedIn, MANUAL-3, PORTAL-6)
+  - RED: `SourceId`, `PageState`, `ReadResult`, `RawSearchItem`, `SearchItem` (= `RawSearchItem` plus worker-built `canonicalUrl`), `OfferDetail`, `GenericPreview` (title and text only, no URL), `HostClass`, `PageMarkers`, `ClassifyTables`, `PortalAdapter` (with `idPattern: RegExp` and `canonicalFor(id): string | null`) are DOM-free (a compile-time check plus a dependency-cruiser fixture); `PortalReaders.readSearchResults` returns `ReadResult<RawSearchItem[]>` (type-level assertion that no URL field exists on a reader result); no `PortalReaders` in core.
+- [ ] 2a.21 Registry, `mapUrl`, `canonicalFor`, `isAllowedNavigation`, `canonicalizeGenericUrl` (PORTAL-1 LinkedIn, PORTAL-3, MANUAL-3, PORTAL-6; A19)
   - Files: `src/core/registry.ts`, `tests/unit/core/registry.test.ts`
-  - RED: `/jobs/view/<id>` and `/jobs/view/<slug>-<id>/`; `currentJobId=<id>` on search and collection URLs; tracking parameters removed; any `*.linkedin.com` subdomain including country subdomains; canonical `https://www.linkedin.com/jobs/view/<id>/`; idempotent; unsupported URLs return null; generic canonicalization lowercases host, drops fragment, drops default port, removes `utm_*`, and two URLs differing only by fragment collapse. Host table is the single source for `hostPermissions`.
+  - RED (A19 additions first): registry `canonicalFor(source, id)` returns the canonical detail URL only when the id matches the adapter id pattern (LinkedIn `/^\d{1,20}$/`) and returns `null` otherwise (`'12 34'`, `'../x'`, a 21-digit id, an empty string, an id containing `/` or `?`); the result passes `mapUrl` round trip (`mapUrl(canonicalFor('linkedin', '123')).id === '123'`) and `isAllowedNavigation`. Existing cases: `/jobs/view/<id>` and `/jobs/view/<slug>-<id>/`; `currentJobId=<id>` on search and collection URLs; tracking parameters removed; any `*.linkedin.com` subdomain including country subdomains; canonical `https://www.linkedin.com/jobs/view/<id>/`; idempotent; unsupported URLs return null; generic canonicalization lowercases host, drops fragment, drops default port, removes `utm_*`, and two URLs differing only by fragment collapse. Host table is the single source for `hostPermissions`.
 - [ ] 2a.22 Navigation guard (PORTAL-6)
   - Files: `src/core/guard.ts`, `tests/unit/core/guard.test.ts`
   - RED: only https on registry hosts; rejects `/jobs-guest/`, `/job-apply/`, `runSearch` case-insensitively in path or query. These strings exist only in this file and its test (the 0.8 plugin passes).
@@ -398,6 +462,45 @@ Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage
 - [ ] 2a.24 Enable the coverage threshold
   - Files: `vitest.config.ts`
   - Accept: `pnpm test --coverage` enforces 90% lines for `src/core` and passes.
+
+### PR 2a-7 - Rationale audit, step 8b (~260 lines; amendment A18)
+
+- [ ] 2a.25 RED: rationale audit table (ANALYSIS-11; ADR-29, Contract C step 8b)
+  - Files: `tests/unit/core/analysis/rationaleAudit.test.ts`
+  - RED, one test per row: durations (`5 years`, `3 años`, `18 months`, `2 semanas`, `10 days`) grounded when the number appears in the corpus and ungrounded otherwise; percentages (`40%`); money (`$120k`, `€50.000`, `USD 90000`, `£40k`) with `k` expansion and thousands-separator and decimal-comma normalization on both sides; calendar years 1950-2099 (`2019` grounded by the offer text, `1949` and `2100` not extracted); corpus number words one to twenty in EN and ES (`five years` in the offer grounds `5 years`; `cinco años` grounds `5 años`); corpus is exactly `fold(requestText)` plus the folded claim statements and tags, branch names, rules and dealbreakers (a number that appears only in an unrelated field such as a claim id, or only in the model's own output, is ungrounded); exclusions: the integer equal to `score` and digits inside `c-<n>`, `b-<n>`, `b-<n>/d<n>` are never extracted; bare counts (`2 of 3 requirements`) are not assertions; `count` equals the number of ungrounded assertions; `samples` hold at most 5 literal rationale spans of at most 40 characters each; a rationale with no assertions yields `{ count: 0, samples: [] }`; pure and deterministic.
+- [ ] 2a.26 GREEN: `auditRationale` (ANALYSIS-11; ADR-29)
+  - Files: `src/core/analysis/rationaleAudit.ts`
+  - Do: implement `auditRationale(rationale, corpus, { score, ids })` and a `buildCorpus(requestText, snapshot)` helper limited to cache-key inputs; no dependency outside `src/core`. Catalan unit words and number words are added in 7.4, not here.
+  - Accept: 2a.25 green.
+- [ ] 2a.27 Wire step 8b into `postValidate` and prove cache-hit consistency (ANALYSIS-11, ANALYSIS-5, ANALYSIS-9; ADR-29; A15, A18)
+  - Files: `src/core/analysis/postValidate.ts`, `src/core/analysis/derive.ts`, `tests/unit/core/analysis/postValidate.audit.test.ts`, `tests/unit/core/analysis/derive.audit.test.ts`
+  - RED: after steps 1-8, step 8b stores the result in `diagnostics.ungroundedClaims`; an ungrounded figure never yields `invalid_output`, never changes `score`, `fit` (no entry becomes `unmatched`), `walls` or `branch_id` (assert the output equals the same input without the figure); the audit sits after the branch step, so a placeholder or ungrounded-evidence failure still reports its earlier cause. Through `derive`: a score-85 output with an ungrounded duration derives `review`/`grounding_downgrade`; the same `ValidatedOutput` served again as a cache hit with a changed PDF set derives the same downgrade (the stored diagnostics, not a recomputation, drive it); with injection signals present the recorded reason is `injection_downgrade`; a grounded figure keeps `apply`. Golden check: extend one fixture from 2a.19 with a stray `10 years` figure and assert `review`.
+  - Accept: 2a.25 to 2a.27 green; `pnpm test --coverage` still at or above 90% for `src/core`.
+
+### PR 2a-8 - Source-host classification (~220 lines; amendment A20)
+
+- [ ] 2a.28 RED: `classifyHost` vectors (PORTAL-11; Contract E; A20)
+  - Files: `tests/unit/core/classifyHost.test.ts`
+  - RED, table-driven; none of the negatives may yield `kind: 'portal'`: `https://linkedin.com@evil.example/jobs/view/1/` (`userinfo`), `https://linkedin.com.evil.com/` (`unknown_host`), `https://evil-linkedin.com/` (`unknown_host`), `https://www.linkedin.com./jobs/view/1/` (`trailing_dot`), a punycode host `https://xn--lnkedin-xyz.com/` and a Unicode look-alike (`punycode`), `http://www.linkedin.com/jobs/view/1/` (`not_https`), `https://www.linkedin.com:8443/jobs/view/1/` (`port`), `javascript:alert(1)` and `data:text/html,x` (`not_https`), an unparseable string (`unparseable`). Positives: `https://linkedin.com/`, `https://www.linkedin.com/`, a country subdomain (`https://es.linkedin.com/`), `https://www.infojobs.net/` classify as `portal` with the right `source`; a host from `KNOWN_ATS_APEXES` and a subdomain of it classify as `known_ats`; an unlisted host is `unverified/unknown_host`; the default `:443` is accepted (WHATWG drops it).
+- [ ] 2a.29 GREEN: `classifyHost` and `KNOWN_ATS_APEXES` (PORTAL-11; A20)
+  - Files: `src/core/registry.ts`
+  - Do: WHATWG parse, https only, empty userinfo and port, no trailing dot, no `xn--` label, then `hostname === apex || hostname.endsWith('.' + apex)` over the portal apex table, then `KNOWN_ATS_APEXES` (a short, freshly authored, data-only list). No other module compares hostnames after 2a.30.
+  - Accept: 2a.28 green.
+- [ ] 2a.30 RED then GREEN: `mapUrl`, the guard and the generic flow delegate to `classifyHost` (PORTAL-11, PORTAL-6; A20)
+  - Files: `src/core/registry.ts`, `src/core/guard.ts`, `tests/unit/core/registry.test.ts`, `tests/unit/core/guard.test.ts`
+  - RED: `mapUrl` returns `null` and `isAllowedNavigation` returns `false` for every negative vector from 2a.28 even when the path looks like a LinkedIn offer; the guard still rejects `/jobs-guest/`, `/job-apply/` and `runSearch` on a valid portal host; a `known_ats` or `unverified` URL is never allowed for navigation or reading; an `unverified` result still allows the generic preview (informational only: no throw, no block).
+  - Do: replace any hostname comparison in 2a.21 and 2a.22 with `classifyHost(url).kind === 'portal'`; a grep-based unit test asserts `registry.ts` is the only `src/core` file that reads `.hostname`.
+  - Accept: 2a.28 to 2a.30 green; the 0.8 forbidden-strings plugin still passes.
+
+### PR 2a-9 - Strict reader result schemas (~150 lines; amendment A19)
+
+- [ ] 2a.31 RED: reader result schemas and caps (PRIV-11, PORTAL-3, PORTAL-4; ADR-14 item 7, Contract E; A19)
+  - Files: `tests/unit/core/schemas/reader.test.ts`
+  - RED, table-driven: `PageMarkers` accepts only five booleans (a string or extra key fails); a search result with an unknown field at any level fails as a whole; caps: `id` 64 characters, `title` 300, `company` 200, `location` 200, detail `text` 50,000 (one character over fails), at most 100 search items, at most 10 `attempted` strategy names of at most 40 characters each, strategy name 41 characters fails; `parseSearchResult(raw, idPattern)` drops an item whose id fails the pattern but keeps the others, returns `unreadable` when zero valid items remain and `noResults` is false, and returns `[]` only when `noResults` is true; a result that parses with a URL-like `href` field fails (strict); a failure message and the logged detail contain only the count and field name, never page text.
+- [ ] 2a.32 GREEN: `src/core/schemas/reader.ts` (PRIV-11; A19)
+  - Files: `src/core/schemas/reader.ts`
+  - Do: `.strict()` Zod schemas for markers, search result, detail result and generic preview (title and text only), plus `parseSearchResult`, `parseDetailResult`, `parseMarkers`; a parse failure maps to `ReadResult` `unreadable`. Zod runs with `jitless` (already configured at startup).
+  - Accept: 2a.31 green; `src/core` coverage at or above 90%.
 
 ---
 
@@ -580,7 +683,7 @@ Prerequisite: S3, S5, S7 verdicts merged (1.12). Exit: the owner analyzes a live
 - [ ] 4.8 AnalysisService (MANUAL-5, MANUAL-7, PROFILE-7, LLM-4; ADR-04, ADR-17)
   - Files: `src/background/services/analysis.ts`, `src/shared/messaging/commands.ts`, `src/background/router.ts`, `tests/integration/analysisService.test.ts`
   - RED (fake provider): gates G1 (profile complete, key not invalid) and G2 (provider permission) run before any page read or provider call so a missing key reads nothing; one analysis makes exactly one provider call through the gateway; cache lookup then derive; a cache hit makes no call and has zero incremental cost; cancel persists `cancelled` first, aborts, and caches/saves nothing; re-analyze enqueues a `force` job and replaces the cached entry with one call; progress is forwarded on a `progress:<jobId>` port; transient failures follow the retry policy; PRIV-5 manual ungated: with no `tos` stored, `analysis.start` proceeds with no ToS screen.
-  - Commands: `analysis.start`, `analysis.confirmGeneric`, `analysis.reanalyze`, `analysis.cancel`.
+  - Commands: `analysis.start`, `analysis.confirmGeneric`, `analysis.reanalyze`, `analysis.cancel`. The `analysis.confirmGeneric` payload carries no URL (`{ tabId, previewId, title, text }`, Contract M, A19); its handler and the preview store are implemented and tested in 4.20/4.21, and this task registers only the command name.
 
 ### PR 4-4 - LinkedIn detail reader (~400 lines)
 
@@ -591,14 +694,34 @@ Prerequisite: S3, S5, S7 verdicts merged (1.12). Exit: the owner analyzes a live
   - Files: `tests/build/readers.test.ts`
   - RED: after `pnpm build`, the `reader-*` bundles contain no provider host, no `chrome.storage` and no `secret:`; the manifest has no `content_scripts`.
 
-### PR 4-5 - activeTab reader, generic reader, commands (~300 lines)
+### PR 4-4a - LinkedIn adapter id pattern and `canonicalFor` (~90 lines; amendment A19)
 
-- [ ] 4.11 activeTab reader and permission handling (PORTAL-7, MANUAL-2)
+- [ ] 4.18 RED: adapter `idPattern`, `canonicalFor` and contract cases (PORTAL-3, PRIV-11; A19)
+  - Files: `tests/contract/portalAdapter.contract.ts`, `tests/contract/portalAdapter.linkedin.test.ts`, `tests/fixtures/portals/linkedin/search-foreign-href.html`
+  - RED: for every adapter the shared contract asserts `canonicalFor(id)` round-trips through `mapUrl` (`mapUrl(canonicalFor('123')).id === '123'`), `canonicalFor` returns `null` for ids that fail `idPattern` (`'12 34'`, `'../x'`, a 21-digit id, `''`), and the result passes `isAllowedNavigation`; a fixture card whose anchor `href` points to a foreign host (`https://canary.invalid/x`) while carrying a valid-looking id yields only that id, never a URL (the search assertion that uses the fixture is enabled in 6-5; here the fixture is parsed by the detail-side id helper test).
+- [ ] 4.19 GREEN: LinkedIn `idPattern` and `canonicalFor` (PORTAL-3; A19)
+  - Files: `src/portals/linkedin/adapter.ts`
+  - Do: `idPattern = /^\d{1,20}$/` (anchored); `canonicalFor` delegates to the core registry `canonicalFor` from 2a.21 so there is one URL builder.
+  - Accept: 4.18 green.
+
+### PR 4-5 - activeTab reader, generic reader, commands (~350 lines)
+
+- [ ] 4.11 activeTab reader and permission handling (PORTAL-7, MANUAL-2, PRIV-11; ADR-14 item 7; A19)
   - Files: `src/background/activeTabReader.ts`, `tests/integration/activeTabReader.test.ts`
-  - RED (fake-browser scripting): without the host permission nothing is injected and the result is `permission_missing`; `executeScript({ files })` once per document then `executeScript({ func })`; results are accepted only from the worker's own calls for the expected tab id; a `login`, `authwall`, `checkpoint` or `rate_limit` page produces the wall message and no analysis.
-- [ ] 4.12 Generic reader and preview (MANUAL-3; ADR-08, ADR-10)
+  - RED (fake-browser scripting): without the host permission nothing is injected and the result is `permission_missing`; `executeScript({ files })` once per document then `executeScript({ func })`; results are accepted only from the worker's own calls for the expected tab id; a `login`, `authwall`, `checkpoint` or `rate_limit` page produces the wall message and no analysis. A19: every `executeScript` result is parsed with the 2a.32 strict schemas before use; an unknown field, a wrong type or any cap exceeded (title 301 characters, text over 50,000) is `unreadable` as a whole and nothing partial reaches the analysis; a markers object with an extra key is `unreadable`; the parse failure is logged by count and field name only.
+- [ ] 4.12 Generic reader and preview (MANUAL-3; ADR-08, ADR-10; A19)
   - Files: `src/portals/generic/readers.ts`, `src/portals/generic/inject.ts`, `src/entrypoints/reader-generic.ts`, `tests/unit/portals/generic.test.ts`
-  - RED (jsdom): `readMainContent` extracts main-content text; it is not a `PortalAdapter` (no registry entry, no tables); the id is `sha256(canonicalizeGenericUrl(url))`, so URLs differing by fragment give the same id; nothing is enqueued until `analysis.confirmGeneric` after the editable preview.
+  - RED (jsdom): `readMainContent` extracts main-content text and returns only `{ title, text }` (no URL field; A19); it is not a `PortalAdapter` (no registry entry, no tables); the id is `sha256(canonicalizeGenericUrl(url))`, so URLs differing by fragment give the same id (the `url` argument is supplied by the worker from `tabs.get`, see 4.20); nothing is enqueued until `analysis.confirmGeneric` after the editable preview.
+
+### PR 4-5a - Generic URL from `tabs.get` and host class in the preview (~120 lines; amendments A19, A20)
+
+- [ ] 4.20 RED: worker-owned generic URL, `previewId`, `confirmGeneric` payload (MANUAL-3, PORTAL-11, PRIV-11; ADR-10, ADR-14 item 7, Contract M; A19, A20)
+  - Files: `tests/integration/genericPreview.test.ts`
+  - RED (fake-browser): building a preview reads `tabs.get(tabId).url`, stores `{ url, hostClass }` in `chrome.storage.session` under a fresh `previewId` and returns `{ previewId, title, text, hostClass }`; a reader result that carries a URL (even a valid one on another host) is rejected by the strict schema and its URL is never used; `analysis.confirmGeneric { tabId, previewId, title, text }` rejects a payload with a `url` field (strict command schema) and an unknown `previewId`, and enqueues with the stored URL only; the stored `canonicalUrl` equals `canonicalizeGenericUrl(tabs.get(tabId).url)` and two previews that differ only by fragment give the same job id; if the tab navigated to another URL between preview and confirm, the stored URL (not the new one) is used and the preview is flagged stale; an `unverified` host (for example `https://linkedin.com.evil.com/x`) still produces a preview with `hostClass.kind === 'unverified'` and does not block or change the analysis path.
+- [ ] 4.21 GREEN: generic preview service and command wiring (MANUAL-3; Contract M; A19, A20)
+  - Files: `src/background/services/genericPreview.ts`, `src/shared/messaging/commands.ts`, `src/background/router.ts`, `src/background/services/analysis.ts`
+  - Do: implement the preview store keyed by `previewId`, drop `url` from the `analysis.confirmGeneric` schema (the 4.8 command keeps its name, the payload is `{ tabId, previewId, title, text }`), call `classifyHost` once per preview.
+  - Accept: 4.20 green.
 
 ### PR 4-6 - Review card and popup/side panel (~400 lines)
 
@@ -608,6 +731,16 @@ Prerequisite: S3, S5, S7 verdicts merged (1.12). Exit: the owner analyzes a live
 - [ ] 4.14 Popup and side panel wiring (MANUAL-1, MANUAL-2, SHELL-1, SHELL-3; ADR-10; S5)
   - Files: `src/entrypoints/popup/main.tsx`, `src/entrypoints/sidepanel/main.tsx`, `src/ui/components/popup/Popup.tsx`, `wxt.config.ts`, `tests/component/popup.test.tsx`, `tests/build/manifest.test.ts`
   - RED: "Analyze this page" calls `chrome.sidePanel.open({ tabId })` and, when the URL maps to a portal without the host permission, `chrome.permissions.request` in the same click handler, then sends `analysis.start`; when `chrome.sidePanel` is unavailable the card renders inside the popup without an error; the side panel's own button requests the permission for a supported portal origin and shows the "click the toolbar icon or press the shortcut" guidance on `permission_missing`; keyboard command `analyze-page` grants `activeTab`; nothing runs while idle. Manifest origin table gains `https://*.linkedin.com/*`.
+
+### PR 4-6a - Review-card chips (~110 lines; amendments A18, A20)
+
+- [ ] 4.22 RED: unverified-figures and unverified-source chips (MANUAL-4, MANUAL-3, ANALYSIS-11, PORTAL-11, PRIV-4; ADR-10, ADR-29; A18, A20)
+  - Files: `tests/component/chips.test.tsx`
+  - RED (Testing Library): a result with `diagnostics.ungroundedClaims.count > 0` shows the chip "Unverified figures in the rationale" listing each sample as a text node (a sample containing `<img onerror=x>` renders as literal text, no element is created); with `count: 0` no chip is shown; the downgrade reason `grounding_downgrade` shows the review verdict with the chip, and `injection_downgrade` wins when both apply; a preview or card whose `hostClass.kind === 'unverified'` shows the non-blocking chip "Unverified source: <host>" with the host rendered as text (a host string containing markup stays literal), never as a link, and `known_ats` and `portal` show no chip; the preview confirm button stays enabled with the chip present; chip labels exist in EN and ES (the i18n parity test passes).
+- [ ] 4.23 GREEN: chips component and i18n keys (MANUAL-4; A18, A20)
+  - Files: `src/ui/components/card/Chips.tsx`, `src/ui/components/card/ReviewCard.tsx`, `src/ui/components/card/GenericPreview.tsx`, `src/ui/i18n/en.ts`, `src/ui/i18n/es.ts`
+  - Do: render the chips as React text nodes only; read `hostClass` from the preview payload (4.21) and `diagnostics` from the result.
+  - Accept: 4.22 green; 4-6 card tests still green.
 
 ### PR 4-7 - E2E and audits (~330 lines)
 
@@ -620,6 +753,12 @@ Prerequisite: S3, S5, S7 verdicts merged (1.12). Exit: the owner analyzes a live
 - [ ] 4.17 Live smoke (owner-run, local only; exit criterion)
   - Files: `package.json`, `tests/live/provider.live.test.ts`
   - Do: `pnpm test:live` env-gated, never in CI, one provider smoke with a real key and one real LinkedIn read. Requires explicit owner authorization of destination, operation and credential before it runs.
+
+### PR 4-8 - Page-content canary E2E, manual flow (~90 lines; amendment A19)
+
+- [ ] 4.24 E2E: page content never steers code, manual flow (PRIV-11, PORTAL-11, MANUAL-3; ADR-14 item 7; A19, A20)
+  - Files: `tests/e2e/canary-manual.spec.ts`, `tests/e2e/support/fixtureServer.ts`, `tests/fixtures/portals/linkedin/detail-canary.html`
+  - RED (e2e build, request recorder, `context.route` for the LinkedIn fixture): a detail fixture whose description and markup contain `https://canary.invalid/x` both as text and as an anchor is analyzed end to end; expected: zero requests to `canary.invalid` (page, worker and recorder), no tab created or updated with that URL, no element with that `href` in the review card, and the detail read targeted the portal host only; a generic-flow variant on a page whose reader would otherwise report a foreign URL stores the `tabs.get` URL, and a spoofed-host tab (`linkedin.com.evil.com` served through the route) shows the unverified-source chip and is not treated as a portal. Skipping the reader schema or the egress allowlist makes the spec fail.
 
 ---
 
@@ -730,11 +869,11 @@ Prerequisite: S3 verdict merged. PRIV-10: the filter PR (6-1) must carry the own
   - Files: `src/core/tos.ts`, `tests/unit/core/tos.test.ts`
   - RED: `TOS_TEXT_VERSION` constant; acceptance valid only when its version equals the constant; revoking yields `tos: null` and `scan.scheduleEnabled: false` as one settings object; an import-restored settings object never carries acceptance.
 
-### PR 6-5 - LinkedIn search reader (~350 lines)
+### PR 6-5 - LinkedIn search reader (~380 lines)
 
-- [ ] 6.12 RED: search reader cases (PORTAL-3, PORTAL-8)
+- [ ] 6.12 RED: search reader cases (PORTAL-3, PORTAL-8, PRIV-11; A19)
   - Files: `tests/contract/portalAdapter.linkedin.test.ts`, `tests/fixtures/portals/linkedin/search-*.html`
-  - RED (jsdom): 25 rendered cards with 2 duplicates yields 23 items deduped by id; `[]` only when `noResults`; unrecognized markup yields `unreadable`; a virtualized list reads only what is rendered; first page only, no scrolling and no pagination; capability flag `search: true`.
+  - RED (jsdom): 25 rendered cards with 2 duplicates yields 23 items deduped by id; `[]` only when `noResults`; unrecognized markup yields `unreadable`; a virtualized list reads only what is rendered; first page only, no scrolling and no pagination; capability flag `search: true`. A19: items are `RawSearchItem` (`id`, `title`, `company`, optional `location`) with no URL field; the id comes from the card attribute or the `href` path; a card whose anchor points to a foreign host (`search-foreign-href.html` from 4.18) yields only its id and the foreign URL appears nowhere in the result; a card whose id fails `idPattern` is dropped, and a page where every card fails it (without `noResults`) is `unreadable`; the result passes the 2a.32 strict schema (101 cards yields at most 100 items).
 - [ ] 6.13 GREEN: `readSearchResults` and search markers
   - Files: `src/portals/linkedin/readers.ts`, `src/portals/linkedin/tables.ts`, `src/portals/linkedin/adapter.ts`
   - Accept: 6.12 green; reader bundle build test 4.10 still green.
@@ -751,10 +890,21 @@ Prerequisite: S3 verdict merged. PRIV-10: the filter PR (6-1) must carry the own
   - Files: `src/background/scanTabDriver.ts`, `tests/integration/scanTabDriver.failClosed.test.ts`
   - RED: when the optional `webRequest` permission is denied, revoked or its status is not observable, classification uses URL and DOM markers only, an unrecognized layout is treated as `unreadable_shell` (never as `ok`), no HTTP status is assumed, and the scan continues only through the layout-failure path; if the S3 verdict removed `webRequest`, this becomes the only mode and the build test (0.18) is updated to drop `webRequest` from the optional allowlist.
 
+### PR 6-6a - Scan driver navigates only rebuilt URLs (~100 lines; amendment A19)
+
+- [ ] 6.28 RED: rebuilt-URL navigation (PRIV-11, PORTAL-3, PORTAL-6; ADR-14 item 7, ADR-09; A19)
+  - Files: `tests/integration/scanTabDriver.rebuilt.test.ts`
+  - RED (fake-browser): `navigateDetail({ source, id })` accepts only an id and builds the target with `canonicalFor`; an id that fails `idPattern` (`'../x'`, `'12 34'`, a 21-digit id) never navigates and yields a typed `invalid_id` result; `navigateSearch(beaconId)` navigates only to the beacon search URL that `normalizeSearchUrl` accepted at save time (a stored URL mutated to another host is refused by the guard); no driver function accepts a URL string from a reader result or from item text; a `SearchItem` built by the worker has `canonicalUrl === canonicalFor(id)` and a foreign `href` in the page markup never reaches `tabs.update`; every `tabs.update` and `tabs.create` call observed in the fake-browser targets a URL that passes `isAllowedNavigation`.
+- [ ] 6.29 GREEN: `navigateDetail` and `navigateSearch` (PRIV-11; A19)
+  - Files: `src/background/scanTabDriver.ts`, `src/background/services/scan.ts`
+  - Do: the driver is the only module allowed to call `tabs.create`/`tabs.update` for scans (the 0.34 egress allowlist); `scan.detail` job payloads carry `{ source, id }`, never a URL (the 6.17 jobs use these payloads).
+  - Accept: 6.28 green; 6.14 to 6.16 still green.
+
 ### PR 6-7 - Scan services and failed-offer flow (~400 lines)
 
 - [ ] 6.17 Scan jobs: search, detail, finish (BEACON-4, BEACON-5, BEACON-6; ADR-17)
   - Files: `src/background/services/scan.ts`, `src/shared/messaging/commands.ts`, `src/background/router.ts`, `tests/integration/scanService.test.ts`
+  - A19 note: `scan.detail` payloads carry `{ source, id }` and navigate through `navigateDetail` from 6.29; no job payload holds a URL read from a page.
   - RED (fake-browser, fake provider): `scan.search` reads the first page, applies the filter, enqueues `scan.detail` jobs deduped by `scan.detail:<source>:<id>`; the first scan of a source records a baseline without analysis; `scan.detail` retries an unreadable detail twice (1 min then 5 min); a detail step persists its `analyze` job in the same transaction that marks the detail done; a seen id is written only when the offer is resolved; at most one due beacon starts per tick; killing the worker at each step boundary resumes without duplicate analysis; `scan.finish` produces the run summary; every portal step calls `canRunPortalStep` first and a failing gate never navigates.
 - [ ] 6.18 Failed offers (BEACON-4, BEACON-5, BEACON-10, TRACKER-1; ADR-26; A14)
   - Files: `src/background/services/scan.ts`, `src/storage/repos/tracker.ts`, `tests/integration/scanFailures.test.ts`
@@ -796,6 +946,12 @@ Prerequisite: S3 verdict merged. PRIV-10: the filter PR (6-1) must carry the own
   - Files: `tests/integration/trackerDeleteSeen.test.ts`
   - RED: deleting a tracker row does not remove its id from the source's seen set, so it is not re-added by a scan.
 
+### PR 6-11 - Page-content canary E2E, scan flow (~80 lines; amendment A19)
+
+- [ ] 6.30 E2E: search results never steer navigation (PRIV-11, PORTAL-3, PORTAL-6, BEACON-5; ADR-14 item 7; A19)
+  - Files: `tests/e2e/canary-scan.spec.ts`, `tests/fixtures/portals/linkedin/search-canary.html`
+  - RED (e2e build, request recorder, simulated portal through `context.route`): a search fixture whose card anchors point to `https://canary.invalid/x` while the cards carry valid-looking ids is scanned; expected: zero requests to `canary.invalid`, no tab created or updated with it, no `href` to it in the tracker rows or the scan summary, and every detail navigation goes to `canonicalFor(id)` on the portal host only; a card with an id that fails the pattern is skipped without navigation. Removing the rebuilt-URL step in the driver or the egress allowlist makes the spec fail.
+
 ---
 
 ## Phase 7: Sub-change 7 `parity-cutover`
@@ -815,8 +971,8 @@ Prerequisite: S3 verdict merged. PRIV-10: the filter PR (6-1) must carry the own
 ### PR 7-2 - Catalan content (~300 lines)
 
 - [ ] 7.4 Catalan language, warnings and signals (PROFILE-5, ANALYSIS-6, ANALYSIS-7)
-  - Files: `src/core/languages.ts`, `src/core/applyWarnings.ts`, `src/core/injectionSignals.ts`, `tests/unit/core/language.ca.test.ts`, `tests/unit/core/applyWarnings.ca.test.ts`
-  - RED: synthetic Catalan 40-word text infers `ca`; Catalan directive cues ("inclou", "adjunta") fire the warnings (best effort) with negatives; Catalan injection phrases flagged. Authored fresh.
+  - Files: `src/core/languages.ts`, `src/core/applyWarnings.ts`, `src/core/injectionSignals.ts`, `src/core/analysis/rationaleAudit.ts`, `tests/unit/core/language.ca.test.ts`, `tests/unit/core/applyWarnings.ca.test.ts`, `tests/unit/core/analysis/rationaleAudit.ca.test.ts`
+  - RED: synthetic Catalan 40-word text infers `ca`; Catalan directive cues ("inclou", "adjunta") fire the warnings (best effort) with negatives; Catalan injection phrases flagged. Authored fresh. A18: the rationale audit (2a.26) also recognizes Catalan duration unit words and Catalan number words one to twenty (a `5 anys` rationale figure is grounded by `cinc anys` in the offer, ungrounded otherwise); the entries are added to the tables in `src/core/analysis/rationaleAudit.ts` and covered in `tests/unit/core/analysis/rationaleAudit.ca.test.ts`.
 - [ ] 7.5 Language selector offers `ca` (PROFILE-5, SHELL-8)
   - Files: `src/ui/components/options/PdfSection.tsx`, `src/ui/components/options/OutputLanguage.tsx`, `tests/component/options/languageSelector.test.tsx`
   - RED: the PDF language selector and the output-language setting offer `es`, `en`, `ca`; the UI itself stays EN and ES (`ca` UI language falls back to `en`).
@@ -887,4 +1043,4 @@ Prerequisite: S3 verdict merged. PRIV-10: the filter PR (6-1) must carry the own
 
 - Judgment-day r1 suspects that were not adopted into the design are not tasks: lease recovery latency and the alarm backstop, tab-less side-panel permission URL reading beyond ADR-10, per-beacon seen ids (seen stays per source), single settings-object lost-update race, `maxOutputTokens` in design constants (set a conservative value in the adapters during 2b-2 and 2b-3 and record it in the PR), price-catalog cache-write price. Raise any of them as a separate change.
 - Open product items carried from the design: product display name for the manifest and README (set in 0.19 as a placeholder and finalized before 7-6); Q1-Q15 defaults are assumed throughout.
-- Spec amendments A1-A17 are already applied to the specs; no task edits `specs/` except 1.4 when a spike fails.
+- Spec amendments A1-A21 are already applied to the specs (A18 ANALYSIS-11, A19 PRIV-11, A20 PORTAL-11, A21 SHELL-12; the tasks for A18-A21 are 0.29-0.34, 2a.25-2a.32 plus in-place edits of 2a.4, 2a.6, 2a.11, 2a.17, 2a.20, 2a.21, 4.8, 4.11, 4.12, 4.18-4.24, 6.12, 6.17, 6.28-6.30 and 7.4); no task edits `specs/` except 1.4 when a spike fails.

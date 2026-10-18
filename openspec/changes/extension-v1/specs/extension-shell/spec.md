@@ -14,7 +14,7 @@ Conventions used across all `extension-v1` specs:
 
 ### Requirement: SHELL-1 Manifest and minimal permissions
 
-The built extension MUST be a Manifest V3 extension loadable in current stable Chrome and Edge. Its required `permissions` MUST be limited to the allowlist `storage`, `alarms`, `scripting`, `activeTab`, `sidePanel`. The manifest MUST declare no required `host_permissions`. Portal hosts, LLM provider hosts, and (when the update check exists) `api.github.com` MUST be declared only as optional host permissions and requested at runtime, each on a user gesture. `notifications` MUST be an optional permission requested when the user enables notifications. `webRequest` MAY be declared as an optional permission, requested on the user gesture that enables beacon scanning, and used only for non-blocking observation of the scan tab's main-frame response status; the optional API permission allowlist is exactly `notifications`, `webRequest` (if Spike S3 shows the status is unobservable or unnecessary, `webRequest` is removed). (amendment A1) No manifest entry MAY use a wildcard that matches all sites (`<all_urls>`, `*://*/*`).
+The built extension MUST be a Manifest V3 extension loadable in current stable Chrome and Edge. Its required `permissions` MUST be limited to the allowlist `storage`, `alarms`, `scripting`, `activeTab`, `sidePanel`. The manifest MUST declare no required `host_permissions`. Portal hosts, LLM provider hosts, and (when the update check exists) `api.github.com` MUST be declared only as optional host permissions and requested at runtime, each on a user gesture. `notifications` MUST be an optional permission requested when the user enables notifications. `webRequest` MAY be declared as an optional permission, requested on the user gesture that enables beacon scanning, and used only for non-blocking observation of the scan tab's main-frame response status; the optional API permission allowlist is exactly `notifications`, `webRequest` (if Spike S3 shows the status is unobservable or unnecessary, `webRequest` is removed). (amendment A1) No manifest entry MAY use a wildcard that matches all sites (`<all_urls>`, `*://*/*`). (amendment A21) The manifest's top-level keys MUST belong to an exact allowlist maintained with the permission test; any other key, including `web_accessible_resources` and `externally_connectable`, MUST fail the test.
 
 #### Scenario: Built manifest matches the allowlist
 
@@ -30,6 +30,12 @@ The built extension MUST be a Manifest V3 extension loadable in current stable C
 - GIVEN a change adds `tabs` to the manifest permissions
 - WHEN the permission test runs
 - THEN the test fails naming the unexpected permission
+
+#### Scenario: An unexpected top-level manifest key fails (amendment A21)
+
+- GIVEN a built manifest that gains `web_accessible_resources` or `externally_connectable`
+- WHEN the manifest test runs
+- THEN the test fails naming the unexpected key
 
 #### Scenario: Optional host permission denied by the user
 
@@ -220,3 +226,31 @@ Each release MUST be preceded by a manual Edge smoke test covering install from 
 - GIVEN the release notes template
 - WHEN a release is prepared
 - THEN the template contains an "Edge smoke" field that must be filled before the release is published
+
+### Requirement: SHELL-12 Install-time script policy (amendment A21)
+
+Installing dependencies MUST NOT run dependency build scripts unless each one is explicitly reviewed. Every per-package build-script approval in the package-manager configuration MUST be `false`, and no setting that approves all build scripts MAY be present. The root package MUST declare no install-time lifecycle script other than `prepare`, and `prepare` MUST only install the git hooks. A test run in CI MUST enforce these rules and fail naming the offending package, setting, or script.
+
+#### Scenario: Approved build script fails
+
+- GIVEN the package-manager configuration approves the build script of a package
+- WHEN the policy test runs
+- THEN it fails naming the package
+
+#### Scenario: Allow-all switch fails
+
+- GIVEN a setting that approves all dependency build scripts
+- WHEN the policy test runs
+- THEN it fails
+
+#### Scenario: Extra install-time script fails
+
+- GIVEN the root package declares a `postinstall` script, or `prepare` runs another command
+- WHEN the policy test runs
+- THEN it fails naming the script
+
+#### Scenario: Current repository passes
+
+- GIVEN the repository as configured by the foundation sub-change
+- WHEN the policy test runs
+- THEN it passes
