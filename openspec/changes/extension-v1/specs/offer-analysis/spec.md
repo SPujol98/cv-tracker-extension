@@ -170,7 +170,7 @@ The result MUST expose counts of dropped items for diagnostics, and the unground
 
 ### Requirement: ANALYSIS-5 Verdict derivation
 
-The verdict MUST be a pure function of the validated result. If at least one accepted wall exists, the verdict is `skip`. Otherwise score greater than or equal to the apply threshold gives `apply`, score greater than or equal to the review threshold (and below apply) gives `review`, and any lower score gives `skip`. Thresholds MUST be named constants with initial values 70 (apply) and 40 (review) (assumption, to be calibrated against the owner's labeled set). The function MUST NOT call the provider and MUST NOT depend on rationale text. An `invalid_output` result MUST NOT have a verdict. (amendment A12) The result MUST record the verdict reason (`wall`, `score`, or `injection_downgrade`). If the offer text contains prompt-injection signals from a deterministic phrase table, an `apply` verdict MUST be downgraded to `review`; signals MUST NOT upgrade a verdict or add walls. (amendment A18) The verdict reason MAY also be `grounding_downgrade`: when the rationale contains ungrounded claims (ANALYSIS-11), an `apply` verdict MUST be downgraded to `review`. When both downgrades apply, the recorded reason MUST be `injection_downgrade`. Neither downgrade MAY change a `review` or `skip` verdict.
+The verdict MUST be a pure function of the validated result. If at least one accepted wall exists, the verdict is `skip`. Otherwise score greater than or equal to the apply threshold gives `apply`, score greater than or equal to the review threshold (and below apply) gives `review`, and any lower score gives `skip`. Thresholds MUST be named constants with initial values 70 (apply) and 40 (review) (assumption, to be calibrated against the owner's labeled set). The function MUST NOT call the provider. Its only inputs MUST be the validated score, the accepted walls, the injection-signal flag, and the ungrounded-claim count produced by the deterministic rationale audit (ANALYSIS-11); it MUST NOT read the rationale or any other free text directly. An `invalid_output` result MUST NOT have a verdict. (amendment A12) The result MUST record the verdict reason (`wall`, `score`, or `injection_downgrade`). If the offer text contains prompt-injection signals from a deterministic phrase table, an `apply` verdict MUST be downgraded to `review`; signals MUST NOT upgrade a verdict or add walls. (amendment A18) The verdict reason MAY also be `grounding_downgrade`: when the audit's ungrounded-claim count is greater than zero (ANALYSIS-11), an `apply` verdict MUST be downgraded to `review`. When both downgrades apply, the recorded reason MUST be `injection_downgrade`. Neither downgrade MAY change a `review` or `skip` verdict.
 
 #### Scenario: Threshold table
 
@@ -198,9 +198,15 @@ The verdict MUST be a pure function of the validated result. If at least one acc
 
 #### Scenario: Both downgrades present (amendment A18)
 
-- GIVEN score 85, no walls, an injection signal in the offer, and one ungrounded claim in the rationale
+- GIVEN score 85, no walls, an injection signal in the offer, and an audit ungrounded-claim count of 1
 - WHEN the verdict is derived
 - THEN the verdict is `review` with reason `injection_downgrade`
+
+#### Scenario: Verdict ignores rationale text (amendment A18)
+
+- GIVEN two validated results with score 85, no walls, no injection signal, and an audit ungrounded-claim count of 0, whose rationales differ in wording
+- WHEN their verdicts are derived
+- THEN both verdicts are `apply` with reason `score`
 
 ### Requirement: ANALYSIS-6 Language inference
 
@@ -289,7 +295,7 @@ The recommended branch comes from the validated result (ANALYSIS-4 rule 6). The 
 
 ### Requirement: ANALYSIS-9 Content-hash cache
 
-Validated results MUST be cached under the key `sha256(normalized offer text + model id + prompt version + profile version)`. (amendment A15) The cache MUST store only the validated model output. A hit MUST return it with every derived field (verdict, language, apply warnings, recommended PDF) recomputed from the current offer text and profile data, without a provider call, flagged `cached: true` with zero incremental cost. (Previously: a hit returned the stored result as is.) Changing any key component MUST cause a miss. Failed or invalid analyses MUST NOT be cached. The cache MUST be bounded (assumption: 2,000 entries, least recently used evicted first).
+Validated results MUST be cached under the key `sha256(normalized offer text + model id + prompt version + profile version)`. (amendment A15) The cache MUST store only the validated model output. A hit MUST return it with every derived field (ungrounded claims (amendment A18, ANALYSIS-11), verdict, language, apply warnings, recommended PDF) recomputed from the current offer text and profile data, without a provider call, flagged `cached: true` with zero incremental cost. (Previously: a hit returned the stored result as is.) Changing any key component MUST cause a miss. Failed or invalid analyses MUST NOT be cached. The cache MUST be bounded (assumption: 2,000 entries, least recently used evicted first).
 
 #### Scenario: Hit
 
@@ -341,9 +347,9 @@ The rationale MUST be requested in the user's chosen output language (default: t
 
 ### Requirement: ANALYSIS-11 Candidate-side grounding of the rationale (amendment A18)
 
-After the branch rule of ANALYSIS-4, the pipeline MUST audit the rationale deterministically and without a provider call. Every quantitative assertion in the rationale MUST be checked: durations (a number followed by a year, month, week, or day unit), percentages, money amounts, and calendar years. An assertion is grounded when its numeric value appears in the normalized offer text used for grounding (ANALYSIS-3) or in the profile data that defines the profile version (claim statements and tags, branch names, rules, and dealbreakers; PROFILE-8). Number words from one to twenty MUST be recognized in that text for Spanish and English, and SHOULD be recognized for Catalan. The output's own score and the digits inside claim, branch, and dealbreaker identifiers MUST NOT be treated as assertions.
+After the branch rule of ANALYSIS-4, the pipeline MUST audit the rationale deterministically and without a provider call. Every quantitative assertion in the rationale MUST be checked: durations (a number followed by a year, month, week, or day unit), percentages, money amounts, and calendar years. An assertion is grounded when its numeric value appears in the normalized offer text used for grounding (ANALYSIS-3) or in the profile data that defines the profile version (claim statements and tags, branch names, rules, and dealbreakers; PROFILE-8). Number words from one to twenty MUST be recognized in that text for Spanish and English, and SHOULD be recognized for Catalan. Numbers on both sides (rationale and evidence text) MUST be parsed by one deterministic rule that decides thousands separators and decimal marks without locale guessing; a token the rule cannot parse MUST NOT be treated as an assertion. The output's own score and the digits inside claim, branch, and dealbreaker identifiers MUST NOT be treated as assertions.
 
-Ungrounded assertions MUST be recorded in the diagnostics as a count with up to 5 literal excerpts of at most 40 characters each. They MUST NOT cause `invalid_output`, and MUST NOT change the score, the fit entries (in particular, they MUST NOT mark a fit entry as unmatched), the walls, or the recommended branch. Their only effect on the verdict is the downgrade defined in ANALYSIS-5. Because the audited text is limited to cache-key inputs, a cache hit (ANALYSIS-9) MUST yield the same ungrounded claims and the same verdict as the original analysis.
+Ungrounded assertions MUST be recorded in the diagnostics as a count with up to 5 literal excerpts of at most 40 characters each. They MUST NOT cause `invalid_output`, and MUST NOT change the score, the fit entries (in particular, they MUST NOT mark a fit entry as unmatched), the walls, or the recommended branch. Their only effect on the verdict is the downgrade defined in ANALYSIS-5. The audit logic (unit-word tables, number-word tables, parsing and extraction rules) is not a cache-key input, so the audit MUST be re-run on every result, including every cache hit (ANALYSIS-9), from the stored rationale and the current audit logic; a stored audit outcome MUST NOT be reused. Because the audited evidence text is limited to cache-key inputs, a hit with unchanged audit logic MUST yield the same ungrounded claims and the same verdict as the original analysis. The audit logic MUST carry a version identifier, recorded with the ungrounded claims, that changes whenever any audit table or rule changes.
 
 #### Scenario: Invented duration downgrades apply
 
@@ -392,5 +398,18 @@ Ungrounded assertions MUST be recorded in the diagnostics as a count with up to 
 #### Scenario: Cache hit keeps the downgrade
 
 - GIVEN a cached result whose rationale had one ungrounded claim
-- WHEN the same offer is analyzed again with unchanged inputs
+- WHEN the same offer is analyzed again with unchanged inputs and unchanged audit logic
 - THEN the result has `cached: true`, the same ungrounded claim, and reason `grounding_downgrade`
+
+#### Scenario: Audit re-run on a cache hit after an audit table change
+
+- GIVEN a cached result with score 85 and no walls whose rationale states "5 anys", first audited before Catalan unit words existed (so no assertion was extracted and the verdict was `apply`), and an offer and profile that never mention "5" or "cinc"
+- WHEN the offer is analyzed again after the audit tables gain the Catalan entries and the audit version changes
+- THEN the provider receives no call and the result has `cached: true`
+- AND the result records 1 ungrounded claim with the new audit version, and the verdict is `review` with reason `grounding_downgrade`
+
+#### Scenario: Ambiguous number formats parsed deterministically
+
+- GIVEN an offer stating a salary of "€50.000" and a rationale citing "50,000 EUR"
+- WHEN the rationale is audited
+- THEN both parse to 50000 and no ungrounded claim is recorded
