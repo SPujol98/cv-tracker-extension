@@ -47,7 +47,7 @@ When the active tab URL maps to a supported portal (PORTAL-1), the system MUST r
 
 ### Requirement: MANUAL-3 Generic fallback for other pages (confirmed by owner 2026-10-10: Q12)
 
-On a page that does not map to a supported portal, the system MUST offer a generic fallback using the `activeTab` grant (no additional host permission): extract the main-content text, show it to the user in an editable preview, and analyze only after the user confirms. The saved record MUST use source `generic` and an id derived from the SHA-256 of the canonicalized page URL.
+On a page that does not map to a supported portal, the system MUST offer a generic fallback using the `activeTab` grant (no additional host permission): extract the main-content text, show it to the user in an editable preview, and analyze only after the user confirms. The saved record MUST use source `generic` and an id derived from the SHA-256 of the canonicalized page URL. (amendment A19) The page URL MUST be the tab URL reported by the browser, never a URL returned by the reading code (PRIV-11). (amendment A20) When the host is classified `unverified` (PORTAL-11), the preview and the review card MUST show a non-blocking "Unverified source: <host>" indicator rendered as text; it MUST NOT block the preview or the analysis and MUST NOT change the result.
 
 #### Scenario: Preview before analysis
 
@@ -74,9 +74,29 @@ On a page that does not map to a supported portal, the system MUST offer a gener
 - WHEN ids are computed
 - THEN both produce the same generic id
 
+#### Scenario: Page cannot choose the URL (amendment A19)
+
+- GIVEN a generic page whose reading code reports a URL different from the tab URL
+- WHEN the offer is confirmed and saved
+- THEN the generic id and the stored URL derive from the tab URL
+
+#### Scenario: Unverified source indicated (amendment A20)
+
+- GIVEN the active tab is an https page on a host that is neither a portal nor a known applicant-tracking host
+- WHEN the preview is shown
+- THEN an "Unverified source: <host>" indicator is shown as text
+- AND the user can still confirm and analyze the text
+
+#### Scenario: Look-alike host not trusted (amendment A20)
+
+- GIVEN the active tab URL is `https://linkedin.com.evil.example/jobs/view/1/`
+- WHEN the user invokes the action
+- THEN the page is handled by the generic fallback, not the LinkedIn adapter
+- AND the unverified-source indicator names `linkedin.com.evil.example`
+
 ### Requirement: MANUAL-4 Review card contents
 
-The review card MUST show: offer title and company; score and verdict; fit entries mapped to claims; walls with their evidence excerpts; apply-instruction warnings with their excerpts; inferred offer language; recommended branch; recommended PDF with open/download controls, or the reason none is recommended; token counts and cost of this analysis; and `cached` and `truncated` indicators when true. (amendment A12) A `skip` caused by a wall MUST be shown distinctly from a low-score `skip`, together with the wall.
+The review card MUST show: offer title and company; score and verdict; fit entries mapped to claims; walls with their evidence excerpts; apply-instruction warnings with their excerpts; inferred offer language; recommended branch; recommended PDF with open/download controls, or the reason none is recommended; token counts and cost of this analysis; and `cached` and `truncated` indicators when true. (amendment A12) A `skip` caused by a wall MUST be shown distinctly from a low-score `skip`, together with the wall. (amendment A18) When the result records ungrounded rationale claims (ANALYSIS-11), the card MUST show an "Unverified figures in the rationale" indicator listing the excerpts as text, and a `grounding_downgrade` verdict MUST say that the verdict was lowered for that reason. (amendment A20) The card MUST show the unverified-source indicator defined in MANUAL-3 when it applies.
 
 #### Scenario: Wall skip shown distinctly (amendment A12)
 
@@ -84,6 +104,13 @@ The review card MUST show: offer title and company; score and verdict; fit entri
 - WHEN the card renders
 - THEN the card shows a blocker-found skip with the wall and its evidence
 - AND it is visually and textually distinct from a low-score skip
+
+#### Scenario: Ungrounded figures indicated (amendment A18)
+
+- GIVEN a result with verdict `review`, reason `grounding_downgrade`, and the ungrounded excerpt "5 years"
+- WHEN the card renders
+- THEN an "Unverified figures in the rationale" indicator shows "5 years" as text
+- AND the card states that the verdict was lowered from apply because of it
 
 #### Scenario: PDF recommendation present
 
