@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import {
   LLM_ERROR_CLASSES,
@@ -50,6 +52,8 @@ describe('ProviderError (ADR-21)', () => {
   });
 });
 
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+
 describe('catalog and port ownership (Contract A)', () => {
   it('derives REAL_PROVIDER_IDS from the catalog keys', () => {
     expect([...REAL_PROVIDER_IDS]).toEqual(Object.keys(PRICE_CATALOG));
@@ -65,13 +69,13 @@ describe('catalog and port ownership (Contract A)', () => {
   it('re-exports ProviderId and ModelEntry from the catalog', () => {
     expectTypeOf<ProviderId>().toEqualTypeOf<CatalogProviderId>();
     expectTypeOf<ModelEntry>().toEqualTypeOf<CatalogModelEntry>();
-    const source = readFileSync('src/core/ports/llm.ts', 'utf8');
+    const source = readFileSync(resolve(repoRoot, 'src/core/ports/llm.ts'), 'utf8');
     expect(source).toMatch(/export type \{[^}]*ProviderId[^}]*\} from '\.\.\/pricing\/catalog/);
     expect(source).toMatch(/export type \{[^}]*ModelEntry[^}]*\} from '\.\.\/pricing\/catalog/);
   });
 
   it('keeps the catalog free of imports from llm.ts', () => {
-    const source = readFileSync('src/core/pricing/catalog.ts', 'utf8');
+    const source = readFileSync(resolve(repoRoot, 'src/core/pricing/catalog.ts'), 'utf8');
     const importLines = source
       .split('\n')
       .filter((line) => /^\s*(import|export)\b.*\bfrom\b/.test(line));
