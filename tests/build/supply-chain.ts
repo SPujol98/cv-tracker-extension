@@ -28,7 +28,10 @@ export function checkSupplyChain({ workspace, npmrc, pkg }: SupplyChainFiles): s
   if ('dangerouslyAllowAllBuilds' in workspace) {
     problems.push('pnpm-workspace.yaml must not set dangerouslyAllowAllBuilds');
   }
-  if (/^\s*dangerously-allow-all-builds\s*=/m.test(npmrc)) {
+  for (const field of FORBIDDEN_PNPM_FIELDS) {
+    if (field in workspace) problems.push(`pnpm-workspace.yaml must not set ${field}`);
+  }
+  if (/^\s*dangerously-allow-all-builds\s*(=|$)/m.test(npmrc)) {
     problems.push('.npmrc must not set dangerously-allow-all-builds');
   }
 
