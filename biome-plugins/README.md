@@ -10,6 +10,7 @@ Source-ban rules that Biome's built-in rules do not cover. Each plugin is regist
 | `no-html-sinks.grit` | `.innerHTML =`, `.outerHTML =`, `insertAdjacentHTML`, `document.write(ln)` | PRIV-4 |
 | `no-send-beacon.grit` | `navigator.sendBeacon(...)` | PRIV-2 |
 | `no-forbidden-portal-strings.grit` | String literals containing `/jobs-guest/`, `/job-apply/`, `runSearch`, except in `src/core/guard.ts` and `tests/unit/core/guard.test.ts` | PORTAL-6 |
+| `restricted-egress.grit` | Global `fetch(...)`, `new XMLHttpRequest()`, `new WebSocket()`, `new EventSource()`, `window.open(...)`, `chrome.tabs.create/update(...)`, `browser.tabs.create/update(...)`, in production source only (`src/**` minus `src/**/*.test.ts(x)`), except the five allowlisted modules | PRIV-11 |
 
 ## Decision record: GritQL versus the TypeScript-AST fallback
 
@@ -27,3 +28,10 @@ single pattern here and implement it in `scripts/check-ast-bans.ts`.
   otherwise a plugin that failed to load looks like a rule that fired.
 - Plugin `includes` globs need a `**/` prefix (`!**/src/core/guard.ts`); repository-relative globs
   such as `!src/core/guard.ts` are silently ignored by Biome 2.5.15.
+- `restricted-egress.grit` allowlist: `src/background/services/providerGateway.ts`,
+  `src/background/services/update.ts`, `src/background/scanTabDriver.ts`, `src/e2e/overrides.ts`,
+  `src/ui/lib/openBlob.ts`. The paths need not exist yet. Adding a path needs a rationale in the
+  same PR and a matching row in `tests/lint-fixtures/gritql-egress.test.ts`. The `**/src/**` glob
+  also matches an absolute ancestor directory named `src`, so keep the checkout outside one.
+- Biome 2.5 prints no per-rule diagnostics in `--stdin-file-path` mode, so the egress fixtures are
+  copied to their stated path inside a temporary tree and linted as real files.

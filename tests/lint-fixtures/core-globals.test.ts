@@ -70,6 +70,9 @@ describe('src/core globals override (ADR-01, ADR-23)', () => {
   it.each(globals)('allows the %s global in src/background', (name) => {
     const { status, output } = lint(`src/background/${name}.ts`);
     expect(output).not.toContain('noRestrictedGlobals');
-    expect(status).toBe(0);
+    // Global fetch is reported by the restricted-egress plugin (PRIV-11) outside the allowlist, so
+    // only the other globals are expected to lint clean here.
+    if (name === 'fetch') expect(output).toContain('restricted-egress');
+    else expect(status).toBe(0);
   });
 });
