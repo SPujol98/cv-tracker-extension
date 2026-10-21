@@ -374,16 +374,16 @@ Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage
 
 ### PR 2a-1 - Ports, cost, text, schemas (~360 lines)
 
-- [ ] 2a.1 Core ports and catalog types (ADR-01, Contract A)
+- [x] 2a.1 Core ports and catalog types (ADR-01, Contract A)
   - Files: `src/core/ports/runtime.ts`, `src/core/pricing/catalog.ts`, `src/core/ports/llm.ts`, `tests/unit/core/ports.test.ts`
   - RED: `ProviderError` carries `cls`, `retryAfterMs`, `afterFirstChunk`; the error class list is exactly the ten in ADR-21; `REAL_PROVIDER_IDS` is derived from the catalog; `llm.ts` re-exports `ProviderId` and `ModelEntry` from the catalog and the catalog imports nothing from `llm.ts`. Catalog entries are synthetic test data here; real entries land in 2b-4.
-- [ ] 2a.2 Cost math (LLM-8)
+- [x] 2a.2 Cost math (LLM-8)
   - Files: `src/core/cost.ts`, `tests/unit/core/cost.test.ts`
   - RED: the $0.02 scenario from the spec; cached-input pricing; `estimated` propagation; `estimateTokens(chars) = ceil(chars/4)`.
-- [ ] 2a.3 Text normalization and folding (ANALYSIS-3; A2, A3, A16)
+- [x] 2a.3 Text normalization and folding (ANALYSIS-3; A2, A3, A16)
   - Files: `src/core/text.ts`, `tests/unit/core/text.test.ts`
   - RED: `normalizeOfferText` (NFC, zero-width and invisible format characters removed, whitespace collapsed, trimmed, no cap); `fold` maps typographic quotes, apostrophes and dashes to ASCII and lowercases; `words`; `capHeadTail(fullText, 11_000)` keeps the first 8,000 characters and the tail that fills the rest minus the `" […] "` marker, both cut at whitespace, `truncated: true`; text at or under the cap is untouched.
-- [ ] 2a.4 Analysis schemas (ANALYSIS-1, ANALYSIS-10, ANALYSIS-11; A18; defines `Diagnostics`)
+- [x] 2a.4 Analysis schemas (ANALYSIS-1, ANALYSIS-10, ANALYSIS-11; A18; defines `Diagnostics`)
   - Files: `src/core/schemas/analysis.ts`, `tests/unit/core/schemas/analysis.test.ts`
   - RED: `OfferAnalysisOutput` is strict and requires every field including `walls[].basis` and `walls[].ref`; extra keys fail; `AnalysisResult` serialization round-trips with every ANALYSIS-10 field; `AnalysisFailure` has no verdict; `Diagnostics` is always present on success and includes `ungroundedClaims: { count, samples, auditVersion }` (A18: `samples` at most 5 entries of at most 40 characters; a longer sample or a sixth entry fails parsing; `auditVersion` is a required non-empty string, and an empty or missing one fails parsing; an audit-free result has `count: 0` and `samples: []`; the `AUDIT_VERSION` constant itself is defined by 2a.26).
 
