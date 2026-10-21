@@ -495,3 +495,19 @@ One slice on branch `feat/0f-manifest-supply-chain-egress` (from `main` at `bc14
 5. The plugin also covers `browser.tabs.update` beyond the listed patterns.
 6. Repository files already satisfied the install-time policy; no policy line was changed.
 7. Authored size is about 406 changed lines against `main` (forecast 240), slightly over the heuristic because of the 57-case fixture matrix, docs and tracking; no code was compressed.
+
+## Batch 8b (0f-2 review follow-up)
+
+Branch `feat/0f-2-egress-supply-chain-hardening`, stacked on `feat/0f-manifest-supply-chain-egress`.
+Addresses the advisory findings of review-18025e497ac184e6 for slice 0f. Strict TDD, runner `pnpm test`.
+
+| Finding | RED (observed) | GREEN (observed) |
+|---|---|---|
+| Workspace `onlyBuiltDependencies`/`neverBuiltDependencies`, bare `.npmrc` key | `supply-chain.test.ts`: 5 failed / 24 | 24 passed |
+| `globalThis`/`self`/`window` member forms, constructors, `open`, `const f = fetch` alias | `gritql-egress.test.ts`: 15 failed / 85 | 85 passed |
+| Ancestor `src` directory scope leak (Biome cannot anchor plugin globs) | 4 failed + drift test failed (same run) | plugin `includes` exclude non-src top-level paths; passed |
+| Vacuous negatives, spawn timeout | helper now requires exit 0, `Checked 1 file`, no `No files were processed`, 60 s timeout, throws on null status | passed |
+| `core-globals` fetch test name, `browser.tabs.update`, allowlist derived from `biome.json` | test-structure changes; `browser.tabs.update` already reported by the rule, so it passed on first run | passed |
+
+Known limitations (documented in `biome-plugins/README.md`, pinned by `known-limitation-global-alias.ts`):
+rebinding the global object, computed member access, destructuring, indirect calls.
