@@ -22,9 +22,9 @@ const TYPOGRAPHIC_DASHES = /[‐-―−]/g;
 const WORD = /[\p{L}\p{N}]+/gu;
 const WHITESPACE = /\s/u;
 
-/** NFC, invisible format characters removed, whitespace collapsed to one space, trimmed. No cap. */
+/** Invisible format characters removed, then NFC (so a Cf char cannot block composition), whitespace collapsed to one space, trimmed. No cap. */
 export function normalizeOfferText(raw: string): string {
-  return raw.normalize('NFC').replace(INVISIBLE_FORMAT, '').replace(/\s+/gu, ' ').trim();
+  return raw.replace(INVISIBLE_FORMAT, '').normalize('NFC').replace(/\s+/gu, ' ').trim();
 }
 
 /** Normalizes, lowercases and maps typographic quotes, apostrophes and dashes to ASCII (A3). */
@@ -64,14 +64,18 @@ function cutTail(text: string, limit: number): string {
 /**
  * Caps text at `maxChars` by keeping the beginning and the end, joined by the elision marker
  * (A16). The head is the first `HEAD_CHARS` characters and the tail fills the rest of the budget
- * minus the marker; both are cut at whitespace when there is any to cut at.
+ * minus the marker; both are cut at whitespace when there is any to cut at. The result never
+ * exceeds `maxChars`: when the budget cannot hold the head, the marker and a tail, it degrades to
+ * a plain head truncation of at most `maxChars` (no marker).
  */
 export function capHeadTail(
   fullText: string,
   maxChars: number = MAX_OFFER_CHARS,
 ): { text: string; truncated: boolean } {
   if (fullText.length <= maxChars) return { text: fullText, truncated: false };
-  const head = cutHead(fullText, Math.min(HEAD_CHARS, maxChars));
-  const tail = cutTail(fullText, maxChars - HEAD_CHARS - ELISION_MARKER.length);
+  const tailBudget = maxChars - HEAD_CHARS - ELISION_MARKER.length;
+  if (tailBudget <= 0) return { text: cutHead(fullText, Math.max(0, maxChars)), truncated: true };
+  const head = cutHead(fullText, HEAD_CHARS);
+  const tail = cutTail(fullText, tailBudget);
   return { text: `${head}${ELISION_MARKER}${tail}`, truncated: true };
 }

@@ -95,6 +95,32 @@ function numberedWords(chars: number): string {
   return out.slice(0, chars).trimEnd();
 }
 
+describe('normalizeOfferText Cf ordering', () => {
+  it('normalizes identically with or without a format char between base and combining mark', () => {
+    expect(normalizeOfferText('e\u200B\u0301')).toBe(normalizeOfferText('e\u0301'));
+    expect(normalizeOfferText('e\u200B\u0301')).toBe('\u00e9');
+  });
+});
+
+describe('capHeadTail small budgets', () => {
+  const long = 'word '.repeat(5_000);
+  it.each([
+    0,
+    1,
+    ELISION_MARKER.length,
+    HEAD_CHARS - 1,
+    HEAD_CHARS,
+    HEAD_CHARS + ELISION_MARKER.length - 1,
+    HEAD_CHARS + ELISION_MARKER.length,
+    HEAD_CHARS + ELISION_MARKER.length + 1,
+    100,
+  ])('never exceeds a budget of %i', (maxChars) => {
+    const { text, truncated } = capHeadTail(long, maxChars);
+    expect(text.length).toBeLessThanOrEqual(maxChars);
+    expect(truncated).toBe(true);
+  });
+});
+
 describe('capHeadTail (ANALYSIS-3; A16)', () => {
   it('exposes the documented constants', () => {
     expect(MAX_OFFER_CHARS).toBe(11_000);
