@@ -1,0 +1,44 @@
+{
+  "outputLanguage": "es",
+  "profile": {
+    "id": "active",
+    "claims": [
+      {
+        "id": "c-1",
+        "statement": "Desarrolla interfaces con React",
+        "tags": ["react"]
+      },
+      {
+        "id": "c-2",
+        "statement": "Diseña servicios con Node",
+        "tags": ["node"]
+      }
+    ],
+    "branches": [
+      {
+        "id": "b-1",
+        "name": "Fullstack",
+        "titleFilter": {
+          "includeGroups": [["fullstack"]],
+          "excludeTerms": []
+        },
+        "rules": ["Prefiere equipos pequeños"],
+        "dealbreakers": ["Presencialidad obligatoria"]
+      }
+    ],
+    "companyBlocklist": [],
+    "nextClaimSeq": 3,
+    "nextBranchSeq": 2
+  },
+  "pdfs": [
+    {
+      "id": "pdf-es",
+      "branchId": "b-1",
+      "language": "es",
+      "fileName": "pdf-es.pdf",
+      "size": 1024,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "addedAt": 1700000000000
+    }
+  ]
+}
