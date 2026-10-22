@@ -1,0 +1,40 @@
+{
+  "name": "English backend offer whose rationale states a figure nobody supplied",
+  "profile": "backend-dev",
+  "offer": {
+    "source": "generic",
+    "title": "Senior Backend Engineer",
+    "company": "Example Labs"
+  },
+  "text": "We are looking for a senior backend engineer to join our platform team at Example Labs. You will build and operate the services that power our product, and you should have solid TypeScript experience with PostgreSQL in production. We offer a friendly team and a flexible schedule, and we are happy to help you grow with us. Please send your CV and a cover letter to jobs@example.com.",
+  "modelOutput": {
+    "requirements": [
+      {
+        "text": "TypeScript experience",
+        "evidence": "solid TypeScript experience with PostgreSQL",
+        "must_have": true
+      }
+    ],
+    "fit": [
+      {
+        "requirement": "TypeScript experience",
+        "claim_ids": ["c-1"]
+      }
+    ],
+    "walls": [],
+    "score": 82,
+    "branch_id": "b-1",
+    "rationale": "Strong overlap with the stack, including 10 years of Go."
+  },
+  "expect": {
+    "status": "ok",
+    "verdict": "review",
+    "verdictReason": "grounding_downgrade",
+    "language": "en",
+    "warnings": ["cover_letter", "email"],
+    "pdfId": "pdf-en",
+    "injectionSuspected": false,
+    "branchName": "Backend",
+    "ungrounded": 1
+  }
+}
