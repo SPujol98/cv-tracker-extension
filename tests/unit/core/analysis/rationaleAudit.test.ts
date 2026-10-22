@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { expandK, parseNumber } from '../../../../src/core/analysis/rationaleAudit.ts';
+import {
+  AUDIT_TABLES,
+  AUDIT_VERSION,
+  expandK,
+  parseNumber,
+} from '../../../../src/core/analysis/rationaleAudit.ts';
+import { sha256Hex } from '../../../../src/core/hash.ts';
 
 // Contract C "Step 8b numeric parsing": one row per token of the design table, plus the edges of
 // each rule. Values are exact decimal strings (rule 6), never floats.
@@ -75,5 +81,22 @@ describe('expandK multiplies an exact decimal string by 1,000 (the `k` suffix)',
     ['1', '1000'],
   ])('%s k -> %s', (value, want) => {
     expect(expandK(value)).toBe(want);
+  });
+});
+
+describe('AUDIT_VERSION tracks the audit tables (ADR-29; the PROMPT_VERSION pattern)', () => {
+  // A hash of every table and extraction constant. Changing any entry fails this test until
+  // `AUDIT_VERSION` is bumped and the new pair is recorded here.
+  const PINNED: Record<string, string> = {
+    'audit-1': '66a4068363a45069f30a06bdb7fbe06697795704aaacae06bc7a3559c33a135a',
+  };
+
+  it('names the current version', () => {
+    expect(AUDIT_VERSION).toBe('audit-1');
+  });
+
+  it('maps the table hash to the version', async () => {
+    const hash = await sha256Hex(JSON.stringify(AUDIT_TABLES));
+    expect(PINNED[AUDIT_VERSION]).toBe(hash);
   });
 });
