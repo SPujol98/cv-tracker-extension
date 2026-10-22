@@ -34,12 +34,18 @@ const PHRASES: readonly RegExp[] = [
  * Looks for injection phrases in the full normalized text (not the capped request, so a signal at
  * the end of a long offer is not lost). Matches are short, distinct excerpts of the folded text.
  */
-export function injectionSignals(text: string): { suspected: boolean; matches: string[] } {
+export function injectionSignals(
+  text: string,
+  phrases: readonly RegExp[] = PHRASES,
+): { suspected: boolean; matches: string[] } {
   const folded = fold(text);
   const matches = new Set<string>();
-  for (const phrase of PHRASES) {
-    // Every occurrence, so the Set (not the scan) is what keeps a repeated excerpt single.
-    for (const found of folded.matchAll(new RegExp(phrase.source, 'g'))) {
+  for (const phrase of phrases) {
+    // Every occurrence, so the Set (not the scan) is what keeps a repeated excerpt single. The
+    // phrase's own flags are kept (only `g` is forced) so a flag-dependent entry stays correct.
+    for (const found of folded.matchAll(
+      new RegExp(phrase.source, `${phrase.flags.replace('g', '')}g`),
+    )) {
       matches.add(found[0].slice(0, INJECTION_MATCH_MAX_CHARS));
     }
   }
