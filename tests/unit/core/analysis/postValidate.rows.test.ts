@@ -230,13 +230,64 @@ describe('step 7: walls', () => {
 
   it('drops it when the ref matches a nice-to-have or a dropped requirement', () => {
     const niceToHave = req('Java skills', 'Fluent Java skills', false);
-    expect(
-      ok({ requirements: [strongReq, niceToHave], walls: [unmet('Java skills')] }).walls,
-    ).toEqual([]);
+    const nice = ok({ requirements: [strongReq, niceToHave], walls: [unmet('Java skills')] });
+    expect(nice.walls).toEqual([]);
+    expect(nice.diagnostics.droppedWalls).toEqual({ ungrounded: 0, weakEvidence: 0, uncited: 1 });
     const dropped = req('Rust skills', 'ten years of Rust');
-    expect(ok({ requirements: [strongReq, dropped], walls: [unmet('Rust skills')] }).walls).toEqual(
-      [],
-    );
+    const gone = ok({ requirements: [strongReq, dropped], walls: [unmet('Rust skills')] });
+    expect(gone.walls).toEqual([]);
+    expect(gone.diagnostics.droppedWalls).toEqual({ ungrounded: 0, weakEvidence: 0, uncited: 1 });
+  });
+
+  it('folds the fit side too: a differently cased and spaced fit string still matches', () => {
+    const out = ok({
+      requirements: [strongReq, javaReq],
+      fit: [{ requirement: '  JAVA   skills ', claim_ids: ['c-1'] }],
+      walls: [unmet('Java skills')],
+    });
+    expect(out.walls).toEqual([]);
+    expect(out.diagnostics.droppedWalls.uncited).toBe(1);
+  });
+
+  it('keeps the wall when the differently spelled fit entry is unmatched', () => {
+    const out = ok({
+      requirements: [strongReq, javaReq],
+      fit: [{ requirement: '  JAVA   skills ', claim_ids: ['c-99'] }],
+      walls: [unmet('Java skills')],
+    });
+    expect(out.walls).toHaveLength(1);
+  });
+
+  describe('reason precedence when a wall fails several checks', () => {
+    const counts = (walls: unknown[]) => ok({ walls }).diagnostics.droppedWalls;
+
+    it('counts ungrounded first even when the evidence is also weak and the ref unknown', () => {
+      expect(counts([wall({ evidence: 'xx', ref: 'b-9/d0' })])).toEqual({
+        ungrounded: 1,
+        weakEvidence: 0,
+        uncited: 0,
+      });
+    });
+
+    it('counts weak evidence before an unknown ref', () => {
+      expect(counts([wall({ evidence: 'on-site', ref: 'b-9/d0' })])).toEqual({
+        ungrounded: 0,
+        weakEvidence: 1,
+        uncited: 0,
+      });
+    });
+
+    it('counts each wall once, by its own first failing check', () => {
+      const walls = [
+        wall({ evidence: 'relocation to Berlin is mandatory', ref: 'b-9/d0' }),
+        wall({ evidence: 'on-site', ref: 'b-9/d0' }),
+        wall({ ref: 'b-9/d0' }),
+        wall(),
+      ];
+      const out = ok({ walls });
+      expect(out.walls).toEqual([wall()]);
+      expect(out.diagnostics.droppedWalls).toEqual({ ungrounded: 1, weakEvidence: 1, uncited: 1 });
+    });
   });
 });
 
