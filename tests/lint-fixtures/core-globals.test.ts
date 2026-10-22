@@ -67,9 +67,21 @@ describe('src/core globals override (ADR-01, ADR-23)', () => {
     expect(status).not.toBe(0);
   });
 
-  it.each(globals)('allows the %s global in src/background', (name) => {
-    const { status, output } = lint(`src/background/${name}.ts`);
+  it.each(globals.filter((n) => n !== 'fetch'))(
+    'allows the %s global in src/background',
+    (name) => {
+      const { status, output } = lint(`src/background/${name}.ts`);
+      expect(output).not.toContain('noRestrictedGlobals');
+      expect(status).toBe(0);
+    },
+  );
+
+  // Global fetch is not a noRestrictedGlobals case in src/background; the restricted-egress plugin
+  // (PRIV-11) reports it outside the allowlisted modules.
+  it('reports the fetch global in src/background as restricted egress (PRIV-11)', () => {
+    const { status, output } = lint('src/background/fetch.ts');
     expect(output).not.toContain('noRestrictedGlobals');
-    expect(status).toBe(0);
+    expect(output).toContain('restricted-egress');
+    expect(status).not.toBe(0);
   });
 });
