@@ -92,6 +92,57 @@ describe('precision-first negatives', () => {
   });
 });
 
+describe('generic modal words are not directives on their own (R3-directive-precision)', () => {
+  it.each([
+    'Experience with GitHub is required.',
+    'Must know ASP.NET and SQL.',
+    'You should have a portfolio of shipped projects.',
+    'Knowledge of Behance is mandatory for this role.',
+    'Se requiere experiencia con GitHub.',
+    'Debes conocer ASP.NET.',
+    'Es imprescindible dominar Next.js y portafolio de proyectos.',
+    'Four years of experience writing references documentation is necessary.',
+  ])('does not warn for the ordinary requirement %j', (text) => {
+    expect(detectApplyWarnings(text)).toEqual([]);
+  });
+
+  it.each([
+    ['Please include a link to your GitHub portfolio', 'portfolio'],
+    ['Apply via our careers site at jobs.example.com', 'external_site'],
+    ['You must attach a cover letter', 'cover_letter'],
+    ['Debes adjuntar una carta de presentación', 'cover_letter'],
+    ['A cover letter is required with your application', 'cover_letter'],
+    ['Es obligatorio indicar tu pretensión salarial en la candidatura', 'salary_expectation'],
+  ])('still warns for the real instruction %j', (text, category) => {
+    expect(categories(text)).toEqual([category]);
+  });
+});
+
+describe('proximity uses the closest cue pair (R3-first-cue-only)', () => {
+  const filler = 'with great care and a lot of patience '.repeat(5);
+
+  it('finds a later directive close to the category cue', () => {
+    const text = `Please read this ${filler}and then send a cover letter.`;
+    expect(categories(text)).toEqual(['cover_letter']);
+  });
+
+  it('finds a later category cue close to the directive', () => {
+    const text = `Our cover letter policy is described elsewhere ${filler}so please send a cover letter.`;
+    expect(categories(text)).toEqual(['cover_letter']);
+  });
+
+  it('starts the excerpt at the closest pair, not at the first cue', () => {
+    const text = `Please read this ${filler}and then send a cover letter.`;
+    const [warning] = detectApplyWarnings(text);
+    expect(warning?.excerpt.startsWith('send a cover letter')).toBe(true);
+  });
+
+  it('still rejects when every pair is far apart', () => {
+    const text = `Please read this ${filler}${filler}and our cover letter policy.`;
+    expect(detectApplyWarnings(text)).toEqual([]);
+  });
+});
+
 describe('result shape', () => {
   it('reports one warning per category, from the first match', () => {
     const first = 'Please send a cover letter.';

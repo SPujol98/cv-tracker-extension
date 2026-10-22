@@ -38,8 +38,10 @@ export function injectionSignals(text: string): { suspected: boolean; matches: s
   const folded = fold(text);
   const matches = new Set<string>();
   for (const phrase of PHRASES) {
-    const found = phrase.exec(folded);
-    if (found) matches.add(found[0].slice(0, INJECTION_MATCH_MAX_CHARS));
+    // Every occurrence, so the Set (not the scan) is what keeps a repeated excerpt single.
+    for (const found of folded.matchAll(new RegExp(phrase.source, 'g'))) {
+      matches.add(found[0].slice(0, INJECTION_MATCH_MAX_CHARS));
+    }
   }
   const list = [...matches].slice(0, INJECTION_MAX_MATCHES);
   return { suspected: list.length > 0, matches: list };
