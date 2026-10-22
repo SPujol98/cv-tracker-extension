@@ -624,3 +624,14 @@ Commits on `feat/2a-2b-prompt-cachekey` (base `feat/2a-2a-profile-version`): `fe
 5. Rationale language names live in a small table in `prompt.ts` (`es`, `en`, `ca`); other codes fall back to the bare code. The shared language table arrives in 2a-4 and should replace it.
 6. Prompt text is product-authored English; the claims block is `id: statement [sorted tags]`, the branches block lists rules and `<branchId>/d<index>: text` lines, empty sections render `(none)`.
 7. Neutralization rewrites `</offer_data` (any case) to `<\/offer_data` keeping the original letter case; attributes are neutralized first and then escaped.
+
+## Batch 11: review fixes on branch `feat/2a-2c-review-fixes` (base `feat/2a-2b-prompt-cachekey`)
+
+Fixes for review-67b40bacb9e78932 only. Commit `89f65e6` `fix(core): pin rendered prompt bytes and reject duplicate profile ids` (152 additions, 11 deletions). Mode: Strict TDD.
+
+| Finding | Test file | RED (observed) | GREEN (observed) |
+|---|---|---|---|
+| R3-prompt-version-guard-gap | `tests/unit/core/analysis/prompt.test.ts` | snapshot pinned to a placeholder hash failed with the observed rendered hash | pinned `659872f8...5a5f` (fully rendered prefix and variable, languages `es`, `en`, `ca`, `xx`, claims with tags, branches with rules and dealbreakers, hostile offer text and attributes); mutations of `Catalan`, the `rule:` line prefix and the tag join each fail the snapshot (reverted) |
+| R3-duplicate-id-order | `tests/unit/core/schemas/profile.test.ts` (new) | 5 failed: duplicate claim and branch ids accepted, tie order depended on insertion, NaN ids unordered | `profileSchema` `superRefine` rejects duplicate ids (malformed ids were already rejected by the patterns); comparator is total: numeric suffix (NaN sorts last), then full id string |
+
+The older template plus output-schema hash test is kept. `pnpm test` 393 passed, lint, typecheck, depcruise and repo-policy green.
