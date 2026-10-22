@@ -1,0 +1,17 @@
+language js
+
+// PRIV-11 (ADR-14 item 7, ADR-23): network egress and tab opening live in five allowlisted modules.
+// Scope and allowlist are plugin `includes` globs in biome.json (plugin globs need the `**/` prefix).
+or {
+  `fetch($...)`,
+  `new XMLHttpRequest($...)`,
+  `new WebSocket($...)`,
+  `new EventSource($...)`,
+  `window.open($...)`,
+  `chrome.tabs.create($...)`,
+  `chrome.tabs.update($...)`,
+  `browser.tabs.create($...)`,
+  `browser.tabs.update($...)`
+} as $call where {
+  register_diagnostic(span=$call, message="restricted-egress: network egress and tab opening are allowed only in the allowlisted modules (PRIV-11).", severity="error")
+}

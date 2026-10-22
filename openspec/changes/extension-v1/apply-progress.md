@@ -4,7 +4,7 @@ Cumulative state of the apply phase. Each batch merges into this file; completed
 
 ## Status
 
-- Tasks complete: 27 of 171 (0.1-0.27; 0.28 documentation done, enabling branch protection is an owner action). Next unit: sub-change 1 (spikes).
+- Tasks complete: 33 of 171 (0.1-0.27 and 0.29-0.34; 0.28 documentation done, enabling branch protection is an owner action). Next unit: sub-change 1 (spikes).
 - Mode: Strict TDD from task 0.3 onward (`strict_tdd: true`, runner `vitest`, command `pnpm test`). Tasks 0.1-0.3 follow the foundation bootstrap exception from `tasks.md` (the runner and the flag flip are created by these tasks).
 - Delivery: `auto-chain`, chain strategy `stacked-to-main`. This batch is slice 0a on branch `feat/0a-toolchain` (local only, not pushed, no PR opened).
 
@@ -393,6 +393,7 @@ RED tests share a commit with their GREEN code so no branch commit carries a fai
 ### Remaining tasks
 
 - (done in Batch 7) PR 0e
+- (done in Batch 8) PR 0f
 
 ## Batch 7: PR 0e - i18n, Playwright, CI, public docs, tasks 0.24-0.27 (+0.28 docs)
 
@@ -449,3 +450,48 @@ Headless works: `chromium.launchPersistentContext('', { channel: 'chromium', ...
 6. CI adds a Playwright browser install step and a failure-only report upload (not in the task list). CodeQL also runs on pushes to `main`.
 7. The CI "build tests" step runs `pnpm vitest run tests/build` after `pnpm build`, matching the design table.
 8. 0.28: docs only. Branch protection stays an owner action.
+
+## Batch 8: PR 0f - Manifest key allowlist, install-time script policy, egress lint, tasks 0.29-0.34
+
+One slice on branch `feat/0f-manifest-supply-chain-egress` (from `main` at `bc14e28`, local only, not pushed, no PR opened).
+
+| Commit | Tasks | Message |
+|---|---|---|
+| `7530c32` | 0.29, 0.30 | `test(build): enforce exact manifest top-level key allowlist` |
+| `3b2c902` | 0.31, 0.32 | `test(build): enforce install-time script policy` |
+| `aaff8e8` | 0.33, 0.34 | `feat(lint): add restricted-egress GritQL plugin with path allowlist` |
+
+### Completed tasks
+
+- [x] 0.29 RED: manifest top-level key allowlist (SHELL-1, A21)
+- [x] 0.30 GREEN: top-level key allowlist in `manifest-rules.ts`
+- [x] 0.31 RED: install-time script policy (SHELL-12, A21)
+- [x] 0.32 GREEN: `checkSupplyChain` (`tests/build/supply-chain.ts`)
+- [x] 0.33 RED: restricted-egress lint fixtures (PRIV-11, A19)
+- [x] 0.34 GREEN: `restricted-egress.grit` and path allowlist
+
+### TDD Cycle Evidence
+
+| Task | Test file | RED (observed) | GREEN (observed) | REFACTOR |
+|---|---|---|---|---|
+| 0.29/0.30 | `tests/build/manifest.test.ts` | 8 failed / 10 (no key check; accept and host_permissions cases pass trivially) | 18 passed, including the real build | Biome formatting |
+| 0.31/0.32 | `tests/build/supply-chain.test.ts` | file failed to load (module `supply-chain.ts` missing), no tests | 19 passed, repository files pass without edits | Biome formatting |
+| 0.33/0.34 | `tests/lint-fixtures/gritql-egress.test.ts` | 9 failed / 57 (all positives; negatives pass trivially) | 57 passed | Fixtures switched from `--stdin-file-path` (prints no diagnostics in Biome 2.5.15) to a temp tree |
+
+### Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run tests/build tests/lint-fixtures/gritql-egress.test.ts`: all passed |
+| Runtime harness | Real WXT build manifest checked against the allowlist; real Biome run over fixtures under stated paths; full suite `pnpm test` 25 files / 318 passed |
+| Rollback boundary | Revert the three commits: `tests/build/manifest*`, `tests/build/supply-chain*`, `biome-plugins/restricted-egress.grit`, `biome.json` plugin entry, egress fixtures and test |
+
+### Deviations and notes
+
+1. WXT emitted no benign extra top-level key; the allowlist is exactly Contract L (design open question closed: no extra key needed).
+2. The pinned Biome 2.5.15 scopes a plugin by path via `includes` negated globs, so no TypeScript-AST fallback was needed; recorded in `biome-plugins/README.md`.
+3. The egress test lints copies in a temp tree because `--stdin-file-path` prints no diagnostics (same limitation as `core-globals.test.ts`).
+4. `core-globals.test.ts` "allows the fetch global in src/background" now expects the `restricted-egress` diagnostic for `fetch` (global fetch is rightly flagged outside the allowlist).
+5. The plugin also covers `browser.tabs.update` beyond the listed patterns.
+6. Repository files already satisfied the install-time policy; no policy line was changed.
+7. Authored size is about 406 changed lines against `main` (forecast 240), slightly over the heuristic because of the 57-case fixture matrix, docs and tracking; no code was compressed.
