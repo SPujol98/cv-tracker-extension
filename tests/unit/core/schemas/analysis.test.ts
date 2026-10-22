@@ -309,6 +309,20 @@ describe('AnalysisFailure', () => {
     expect(analysisFailureSchema.parse(failure)).toEqual(failure);
   });
 
+  it('may carry the billed usage of a result that was discarded (R4-001)', () => {
+    const usage = {
+      inputTokens: 10,
+      outputTokens: 5,
+      cachedInputTokens: 0,
+      costUsd: 0.001,
+      estimated: false,
+    };
+    expect(analysisFailureSchema.parse({ ...failure, usage })).toEqual({ ...failure, usage });
+    expect(analysisFailureSchema.safeParse({ ...failure, usage: { inputTokens: 1 } }).success).toBe(
+      false,
+    );
+  });
+
   it('has no verdict: a verdict key fails parsing', () => {
     expect(analysisFailureSchema.safeParse({ ...failure, verdict: 'skip' }).success).toBe(false);
   });

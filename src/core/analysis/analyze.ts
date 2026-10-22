@@ -44,8 +44,27 @@ export interface AnalyzeDeps {
 
 const CANCELLED_MESSAGE = 'The analysis was cancelled.';
 
-function failure(errorClass: LlmErrorClass, message: string, createdAt: number): AnalysisFailure {
-  return { status: 'failed', errorClass, message, createdAt };
+function failure(
+  errorClass: LlmErrorClass,
+  message: string,
+  createdAt: number,
+  usage?: AnalysisFailure['usage'],
+): AnalysisFailure {
+  return usage
+    ? { status: 'failed', errorClass, message, usage, createdAt }
+    : { status: 'failed', errorClass, message, createdAt };
+}
+
+/** The usage of one call priced with the model's catalog price (success and discarded results). */
+function billedUsage(usage: Usage, model: ModelEntry): NonNullable<AnalysisFailure['usage']> {
+  const { costUsd, estimated } = computeCost(usage, model.price);
+  return {
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    cachedInputTokens: usage.cachedInputTokens,
+    costUsd,
+    estimated,
+  };
 }
 
 /** The final event of the one call, or a typed failure. Only a `ProviderError` is converted. */
@@ -90,8 +109,12 @@ export async function analyzeOffer(
   if (called instanceof ProviderError) {
     return failure(called.cls, called.message, deps.now());
   }
-  // A result that lands after the abort is discarded, so the caller never caches or saves it.
-  if (input.signal.aborted) return failure('cancelled', CANCELLED_MESSAGE, deps.now());
+  // A result that lands after the abort is discarded, so the caller never caches or saves it. The
+  // provider already billed that call, so its usage stays on the failure (R4-001).
+  if (input.signal.aborted) {
+    const usage = called && billedUsage(called.usage, input.model);
+    return failure('cancelled', CANCELLED_MESSAGE, deps.now(), usage ?? undefined);
+  }
   if (called === null) {
     return failure('invalid_output', 'The provider ended without a final result.', deps.now());
   }
@@ -101,7 +124,6 @@ export async function analyzeOffer(
     return failure('invalid_output', `Invalid output: ${validated.reason}.`, deps.now());
   }
 
-  const { costUsd, estimated } = computeCost(called.usage, input.model.price);
   return derive(validated.output, {
     fullText,
     snapshot: input.snapshot,
@@ -109,13 +131,7 @@ export async function analyzeOffer(
     meta: {
       cached: false,
       truncated,
-      usage: {
-        inputTokens: called.usage.inputTokens,
-        outputTokens: called.usage.outputTokens,
-        cachedInputTokens: called.usage.cachedInputTokens,
-        costUsd,
-        estimated,
-      },
+      usage: billedUsage(called.usage, input.model),
       modelId: input.model.qualifiedId,
       promptVersion: PROMPT_VERSION,
       profileVersion: await profileVersion(input.snapshot, input.outputLanguage),

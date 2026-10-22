@@ -219,6 +219,42 @@ describe('analyzeOffer cancellation (ADR-21; R3-abort-path-unproved)', () => {
     expect(outcome).toMatchObject({ status: 'failed', errorClass: 'cancelled' });
   });
 
+  it('keeps the billed usage and cost on the cancelled failure of a late final (R4-001)', async () => {
+    const controller = new AbortController();
+    const provider = createFakeProvider([]);
+    const usage = {
+      inputTokens: 1_000,
+      outputTokens: 400,
+      cachedInputTokens: 200,
+      estimated: false,
+    };
+    provider.complete = async function* () {
+      controller.abort();
+      yield { type: 'final', json: goodOutput, usage, model: FAKE_MODEL.id };
+    };
+    const outcome = await analyzeOffer(input({ signal: controller.signal }), deps(provider));
+    const { costUsd, estimated } = computeCost(usage, FAKE_MODEL.price);
+    expect(outcome).toMatchObject({ status: 'failed', errorClass: 'cancelled' });
+    expect(outcome).toHaveProperty('usage', {
+      inputTokens: 1_000,
+      outputTokens: 400,
+      cachedInputTokens: 200,
+      costUsd,
+      estimated,
+    });
+    expect(analysisOutcomeSchema.parse(outcome)).toEqual(outcome);
+  });
+
+  it('carries no usage on a cancelled failure that never saw a final event', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const outcome = await analyzeOffer(
+      input({ signal: controller.signal }),
+      deps(createFakeProvider([])),
+    );
+    expect(outcome).not.toHaveProperty('usage');
+  });
+
   it('still surfaces a non-abort error that is not a ProviderError', async () => {
     const provider = createFakeProvider([]);
     provider.complete = () => {
