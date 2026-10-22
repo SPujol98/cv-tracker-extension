@@ -1,0 +1,62 @@
+{
+  "outputLanguage": "en",
+  "profile": {
+    "id": "active",
+    "claims": [
+      {
+        "id": "c-1",
+        "statement": "Builds TypeScript services",
+        "tags": ["typescript", "backend"]
+      },
+      {
+        "id": "c-2",
+        "statement": "Operates PostgreSQL in production",
+        "tags": ["postgres"]
+      }
+    ],
+    "branches": [
+      {
+        "id": "b-1",
+        "name": "Backend",
+        "titleFilter": {
+          "includeGroups": [["backend"]],
+          "excludeTerms": []
+        },
+        "rules": ["Prefer remote roles"],
+        "dealbreakers": ["Mandatory on-site work"]
+      }
+    ],
+    "companyBlocklist": [],
+    "nextClaimSeq": 3,
+    "nextBranchSeq": 2
+  },
+  "pdfs": [
+    {
+      "id": "pdf-en-a-old",
+      "branchId": "b-1",
+      "language": "en",
+      "fileName": "pdf-en-a-old.pdf",
+      "size": 1024,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "addedAt": 1700000000000
+    },
+    {
+      "id": "pdf-en-z-new",
+      "branchId": "b-1",
+      "language": "en",
+      "fileName": "pdf-en-z-new.pdf",
+      "size": 1024,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "addedAt": 1700000500000
+    },
+    {
+      "id": "pdf-es",
+      "branchId": "b-1",
+      "language": "es",
+      "fileName": "pdf-es.pdf",
+      "size": 1024,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "addedAt": 1700000000000
+    }
+  ]
+}

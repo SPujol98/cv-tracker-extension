@@ -90,6 +90,7 @@ const byName = (file: string) => {
 describe('golden synthetic offers end to end through the fake provider', () => {
   it('loads every fixture the suite is written for', () => {
     expect(offers.map((o) => o.file)).toEqual([
+      'en-backend-pdf-history.json',
       'en-backend.json',
       'es-fullstack.json',
       'injection-delimiter.json',
