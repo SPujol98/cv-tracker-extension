@@ -643,3 +643,26 @@ Commits: `test(core): cover wall reason precedence, dropped-requirement counts a
 | Rollback boundary | Revert the three 2a-4a commits: `src/core/analysis/verdict.ts`, `src/core/injectionSignals.ts` and their tests; the follow-up tests are independent |
 
 Decisions (2a-4a): `deriveVerdict` input is exactly `{ score, acceptedWalls, injectionSuspected, ungroundedClaims }`; `Verdict` and `VerdictReason` types derive from the schema constants. The injection table reports the first match per pattern (distinct excerpts, at most 5, each at most 80 characters, taken from the folded text so the chip text is lowercase). Role-reassignment phrases require a model noun ("you are now an assistant", not "you are now part of a team") to stay precision-first.
+
+### Sub-slice 2a-4b: task 2a.13 and the review-0f7820e1f90ce161 follow-ups
+
+Branch `feat/2a-4b-language` (base `feat/2a-4a-verdict-injection`).
+
+- [x] 2a.13 Language inference (ANALYSIS-6, PROFILE-5; A16)
+
+Commits: `test(core): hash rendered prompt bytes only and document malformed-id ordering`, `feat(core): add language table and deterministic language inference`, `refactor(core): use the shared language table for prompt language names`.
+
+| Task | Test file | RED (observed) | GREEN (observed) | REFACTOR |
+|---|---|---|---|---|
+| follow-up: per-language prompt hash | `tests/unit/core/analysis/prompt.test.ts` | after removing the language code from the hashed object the pin failed with the new rendered-bytes hash (`f00e6116...fbbfc` against the old `659872f8...5a5f`); the pin was updated, and a mutation of the `Catalan` name fails it (reverted) | 24 passed | none |
+| follow-up: malformed-id ordering doc | `tests/unit/core/schemas/profile.test.ts` | doc comment only; a new test backs the corrected text: empty suffix sorts first, non-numeric last | 9 passed | none |
+| 2a.13 | `tests/unit/core/language.test.ts` | suite failed to load, `Cannot find module .../src/core/language.ts` | 20 passed: synthetic es/en/ca texts, short text, exactly 20 tokens, mixed text, no signal, company-name case, text beyond the cap, exact `LANG_MIN_SCORE` and `LANG_LEAD_RATIO` boundaries with a synthetic table, marker weight, a registered fourth language | none needed |
+| follow-up: shared table in `prompt.ts` | existing prompt snapshot | n/a (refactor guarded by the pinned rendered hash) | 24 passed with the hash unchanged, so `PROMPT_VERSION` stays `analysis-2` | local `LANGUAGE_NAMES` removed |
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run tests/unit/core/language.test.ts tests/unit/core/analysis/prompt.test.ts tests/unit/core/schemas/profile.test.ts`: all passed |
+| Runtime harness | N/A: pure `src/core` modules with no runtime boundary |
+| Rollback boundary | Revert the three 2a-4b commits independently; `languages.ts` and `language.ts` are imported only by `prompt.ts` (name lookup) |
+
+Decisions (2a-4b): `LanguageEntry` gains a required `name` (English name for the prompt) so the shared table replaces `LANGUAGE_NAMES`; `languageName(code, table)` returns the bare code for an unknown code. The table holds es, en and ca (the synthetic fourth language in the test is a fourth entry). Word lists are space-separated strings split at load, with shared function words listed in both Spanish and Catalan so they cancel and the markers decide.
