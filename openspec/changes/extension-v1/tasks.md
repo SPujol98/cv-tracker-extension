@@ -423,10 +423,10 @@ Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage
 - [x] 2a.13 Language inference (ANALYSIS-6, PROFILE-5; A16)
   - Files: `src/core/languages.ts`, `src/core/language.ts`, `tests/unit/core/language.test.ts`
   - RED: synthetic 40-word `es` and `en` texts; short text (< 20 tokens) is `unknown`; company-name interference case; a registered synthetic fourth language works through the table parameter; thresholds `LANG_MIN_SCORE` 3 and `LANG_LEAD_RATIO` 1.5; operates on `fullText`. Table authored fresh.
-- [ ] 2a.14 Apply warnings (ANALYSIS-7; A16)
+- [x] 2a.14 Apply warnings (ANALYSIS-7; A16)
   - Files: `src/core/applyWarnings.ts`, `tests/unit/core/applyWarnings.test.ts`
   - RED: every ANALYSIS-7 scenario in EN and ES; negatives (a bare footer address has no directive cue); one warning per category with excerpt at most 160 characters; a cover-letter request in the tail of a 30,000-character text is found. Catalan entries wait for 7-2.
-- [ ] 2a.15 PDF pick (ANALYSIS-8)
+- [x] 2a.15 PDF pick (ANALYSIS-8)
   - Files: `src/core/analysis/pickPdf.ts`, `tests/unit/core/analysis/pickPdf.test.ts`
   - RED: branch null gives `no_branch`; language unknown gives `language_unknown`; no exact pair gives `no_pdf_for_language` with that branch's PDFs as alternatives; never substitutes another language.
 

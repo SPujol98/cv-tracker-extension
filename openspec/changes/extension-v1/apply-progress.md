@@ -732,3 +732,25 @@ Commits: `test(core): hash rendered prompt bytes only and document malformed-id 
 | Rollback boundary | Revert the three 2a-4b commits independently; `languages.ts` and `language.ts` are imported only by `prompt.ts` (name lookup) |
 
 Decisions (2a-4b): `LanguageEntry` gains a required `name` (English name for the prompt) so the shared table replaces `LANGUAGE_NAMES`; `languageName(code, table)` returns the bare code for an unknown code. The table holds es, en and ca (the synthetic fourth language in the test is a fourth entry). Word lists are space-separated strings split at load, with shared function words listed in both Spanish and Catalan so they cancel and the markers decide.
+
+### Sub-slice 2a-4c: tasks 2a.14 and 2a.15
+
+Branch `feat/2a-4c-warnings-pdf` (base `feat/2a-4b-language`).
+
+- [x] 2a.14 Apply warnings (ANALYSIS-7; A16)
+- [x] 2a.15 PDF pick (ANALYSIS-8)
+
+Commits: `feat(core): add recommended CV PDF pick`, `feat(core): add EN/ES apply-instruction warnings`.
+
+| Task | Test file | RED (observed) | GREEN (observed) | REFACTOR |
+|---|---|---|---|---|
+| 2a.15 | `tests/unit/core/analysis/pickPdf.test.ts` | suite failed to load, `Cannot find module .../src/core/analysis/pickPdf.ts` | 8 passed: exact pairs, `no_branch` before `language_unknown` before `no_pdf_for_language`, alternatives are that branch's PDFs only, no substitution, empty branch, duplicate pair resolved newest-first independent of input order | none needed |
+| 2a.14 | `tests/unit/core/applyWarnings.test.ts` | suite failed to load, `Cannot find module .../src/core/applyWarnings.ts` | first run 29 of 31 passed; the two failures were the phone scenarios (a trailing word boundary after `call +` rejected the digit), fixed with a lookahead: 31 passed. Mutating `MAX_CUE_GAP` to 1000 fails the proximity test (reverted) | Biome formatting only |
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run tests/unit/core/applyWarnings.test.ts tests/unit/core/analysis/pickPdf.test.ts`: 2 files, 39 passed |
+| Runtime harness | N/A: pure `src/core` modules with no runtime boundary |
+| Rollback boundary | Revert the two 2a-4c commits; nothing imports either module yet (`derive` arrives in 2a-5) |
+
+Decisions (2a-4c): a warning needs a directive cue and a category cue in one sentence and within 120 characters; sentences split at `.`, `!`, `?` followed by a capital and at bullet glyphs (the normalized text has no newlines). Email addresses are blanked before the external-site cue so an address domain never fires `external_site`. Warnings come back in order of first appearance, one per category, excerpt taken from the normalized (not folded) text. When a (branch, language) pair has several PDFs, `pickPdf` takes the newest by `addedAt` (id breaks ties); `alternatives` are newest first for the same branch. `pickPdf` with a null branch returns an empty `alternatives` list.
