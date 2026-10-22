@@ -619,3 +619,27 @@ Commit `feat(core): add post-validation steps 4-8 (grounding, claims, walls, bra
 5. A fit entry that arrives with no claim ids is also marked `unmatched` (an entry "left with no ids"); fit entries for requirements dropped at grounding are kept as the model sent them, as the spec is silent.
 6. An `unmet_must_have` citation resolves against kept `must_have` requirements only, matching fit entries by folded requirement text; a requirement with any matched entry has a claim.
 7. Placeholder angle templates are any whole string of the form `<...>` with no nested angle brackets.
+
+## Batch 13: PR 2a-4 split into 2a-4a, 2a-4b and 2a-4c (tasks 2a.11-2a.15 plus advisory follow-ups)
+
+Slice "PR 2a-4" plus the review follow-ups come to about 1,000 authored lines, over the owner policy of about 400, so it is split at work-unit boundaries into stacked branches, each green on its own, never separating code from tests: `feat/2a-4a-verdict-injection` (base `feat/2a-3b-grounding-walls`), `feat/2a-4b-language` (base 2a-4a) and `feat/2a-4c-warnings-pdf` (base 2a-4b). Local only, not pushed, no PR opened. Mode: Strict TDD.
+
+### Sub-slice 2a-4a: tasks 2a.11, 2a.12 and the review-21e71e7d59070ccd follow-ups
+
+- [x] 2a.11 Verdict (ANALYSIS-5; A12, A18)
+- [x] 2a.12 Injection signals (ADR-14; A12)
+
+Commits: `test(core): cover wall reason precedence, dropped-requirement counts and fit-side fold` (follow-up, tests only: characterization of existing behavior, so no RED exists; mutating the fit-side fold in `postValidate` makes two tests fail, reverted), `feat(core): add verdict derivation with injection and grounding downgrades`, `feat(core): add EN/ES prompt-injection signal table`.
+
+| Task | Test file | RED (observed) | GREEN (observed) | REFACTOR |
+|---|---|---|---|---|
+| 2a.11 | `tests/unit/core/verdict.test.ts` | suite failed to load, `Cannot find module .../src/core/analysis/verdict.ts` | 17 passed: thresholds 85/70/69/40/39, wall over any score and over both downgrades, `injection_downgrade`, `grounding_downgrade`, injection precedence, downgrades never touch review/skip/wall, `// @ts-expect-error` proves a `rationale` field does not compile (checked by `pnpm typecheck`) | Biome formatting only |
+| 2a.12 | `tests/unit/core/injectionSignals.test.ts` | suite failed to load, `Cannot find module .../src/core/injectionSignals.ts` | 27 passed: 14 EN/ES positives with excerpts, invisible-character folding, signal at the end of a 30,000-character text, distinct and at most 5 excerpts of at most 80 characters, 10 benign negatives | none needed |
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run tests/unit/core/verdict.test.ts tests/unit/core/injectionSignals.test.ts tests/unit/core/analysis/postValidate.rows.test.ts`: all passed |
+| Runtime harness | N/A: pure `src/core` modules with no runtime boundary |
+| Rollback boundary | Revert the three 2a-4a commits: `src/core/analysis/verdict.ts`, `src/core/injectionSignals.ts` and their tests; the follow-up tests are independent |
+
+Decisions (2a-4a): `deriveVerdict` input is exactly `{ score, acceptedWalls, injectionSuspected, ungroundedClaims }`; `Verdict` and `VerdictReason` types derive from the schema constants. The injection table reports the first match per pattern (distinct excerpts, at most 5, each at most 80 characters, taken from the folded text so the chip text is lowercase). Role-reassignment phrases require a model noun ("you are now an assistant", not "you are now part of a team") to stay precision-first.
