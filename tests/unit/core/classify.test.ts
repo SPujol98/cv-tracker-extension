@@ -60,10 +60,17 @@ const table: Case[] = [
   ['authwall marker', BASE, undefined, { authwall: true }, 'authwall'],
   ['authwall beats checkpoint', BASE, undefined, { authwall: true, challenge: true }, 'authwall'],
   [
-    'authwall URL beats a checkpoint URL order',
+    'authwall URL beats a checkpoint marker',
     'https://portal.example/authwall',
     undefined,
     { challenge: true },
+    'authwall',
+  ],
+  [
+    'authwall URL beats a checkpoint URL',
+    'https://portal.example/checkpoint/authwall',
+    undefined,
+    {},
     'authwall',
   ],
   ['checkpoint URL', 'https://portal.example/checkpoint/challenge', undefined, {}, 'checkpoint'],
