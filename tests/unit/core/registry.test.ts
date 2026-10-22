@@ -3,6 +3,7 @@ import {
   canonicalFor,
   canonicalizeGenericUrl,
   hostPermissions,
+  isRegistryUrl,
   LINKEDIN_ID_PATTERN,
   mapUrl,
 } from '../../../src/core/registry.ts';
@@ -200,5 +201,21 @@ describe('canonicalizeGenericUrl (MANUAL-3)', () => {
 
   it('returns an unparseable input unchanged', () => {
     expect(canonicalizeGenericUrl('not a url')).toBe('not a url');
+  });
+});
+
+describe('isRegistryUrl is the registry-owned host check the guard uses (PORTAL-6)', () => {
+  it.each([
+    ['https://www.linkedin.com/anything', true],
+    ['https://linkedin.com/', true],
+    ['https://es.linkedin.com/x', true],
+    ['http://www.linkedin.com/', false],
+    ['https://linkedin.com.evil.example/', false],
+    ['https://evil-linkedin.com/', false],
+    ['https://example.com/', false],
+    ['not a url', false],
+    ['', false],
+  ])('%s -> %s', (url, want) => {
+    expect(isRegistryUrl(url)).toBe(want);
   });
 });
