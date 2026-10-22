@@ -392,10 +392,10 @@ Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage
 - [x] 2a.5 Profile schemas, `profileVersion`, `dealbreakerRefs` (PROFILE-8; A4; defines `CvPdfMeta`, `TitleFilter`)
   - Files: `src/core/schemas/profile.ts`, `src/core/analysis/profileVersion.ts`, `tests/unit/core/profileVersion.test.ts`
   - RED: deterministic for identical content; changes on claim statement, tags, set membership, branch name, rules, dealbreakers and output language; does not change on PDF changes, titleFilter or blocklist; independent of insertion order; `dealbreakerRefs` yields `<branchId>/d<index>` stable per version; claim and branch id patterns `c-<n>`, `b-<n>`.
-- [ ] 2a.6 Prompt builder and output schema (ANALYSIS-2, ANALYSIS-3, ANALYSIS-10, ANALYSIS-11; ADR-14, ADR-29; A18)
+- [x] 2a.6 Prompt builder and output schema (ANALYSIS-2, ANALYSIS-3, ANALYSIS-10, ANALYSIS-11; ADR-14, ADR-29; A18)
   - Files: `src/core/analysis/prompt.ts`, `src/core/analysis/outputSchema.ts`, `tests/unit/core/analysis/prompt.test.ts`
   - RED: the prefix is byte-identical across offers for the same `(snapshot, outputLanguage, PROMPT_VERSION)`; claims and branches are sorted by id; every case-insensitive `</offer_data` in the offer text and in `source`/`title`/`company` is rewritten and the closing delimiter appears exactly once; attributes are escaped; a snapshot test maps the template hash to `PROMPT_VERSION` so a template or output-schema change without a bump fails; Spanish output-language instruction present when `outputLanguage` is `es`; the rubric (prefix block 0) contains the A18 sentence that figures in the rationale must come from the offer or the listed claims (asserted by a substring test on the built prefix). `PROMPT_VERSION` stays `analysis-2` because 2a-2 has not merged; if it merges before this edit lands, the sentence bumps the version and the snapshot test records it.
-- [ ] 2a.7 Cache key (ANALYSIS-9; interpretation (a))
+- [x] 2a.7 Cache key (ANALYSIS-9; interpretation (a))
   - Files: `src/core/analysis/cacheKey.ts`, `tests/unit/core/analysis/cacheKey.test.ts`
   - RED: `sha256(requestText \0 qualifiedModelId \0 promptVersion \0 profileVersion)`; each component change changes the key; the qualified id is `<provider>/<model>`.
 

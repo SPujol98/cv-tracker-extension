@@ -594,3 +594,33 @@ Commit `34d6df0` `feat(core): add profile schemas, profileVersion and dealbreake
 3. Id ordering is numeric by sequence (`c-10` after `c-9`) through `sortedClaims` and `sortedBranches` in `profile.ts`; the prompt builder reuses them so the prefix and the version order identically. Tags are sorted in the version and in the prompt.
 4. `cvPdfMetaSchema` moved from the 2a-1c placeholder in `analysis.ts` into `profile.ts` (exported, `size` now a non-negative integer) and `analysis.ts` imports it, as the 2a-1 deviation note intended. `language` stays a plain string until the language table lands (2a-4). `CvPdf` is a TypeScript type (`CvPdfMeta & { blob: Blob }`), not a Zod schema.
 5. `src/core/hash.ts` (`sha256Hex`) is new and shared by `profileVersion` and `cacheKey`; it is not in the task file list.
+
+### Sub-slice 2a-2b: tasks 2a.6 and 2a.7
+
+- [x] 2a.6 Prompt builder and output schema (ANALYSIS-2, ANALYSIS-3, ANALYSIS-10, ANALYSIS-11; ADR-14, ADR-29; A18)
+- [x] 2a.7 Cache key (ANALYSIS-9; interpretation (a))
+
+Commits on `feat/2a-2b-prompt-cachekey` (base `feat/2a-2a-profile-version`): `feat(core): add content-hash analysis cache key` (2a.7), `feat(core): add analysis prompt builder and output JSON schema` (2a.6), and a tracking commit `docs(openspec): record apply progress for slice 2a-2b`.
+
+| Task | Test file | RED (observed) | GREEN (observed) | REFACTOR |
+|---|---|---|---|---|
+| 2a.7 | `tests/unit/core/analysis/cacheKey.test.ts` | suite failed to load, `Cannot find module .../src/core/analysis/cacheKey.ts` | 7 passed (digest equals `sha256` of the NUL-joined parts, determinism, each of four components, provider-qualified id) | Biome formatting only |
+| 2a.6 | `tests/unit/core/analysis/prompt.test.ts` | suite failed to load, `Cannot find module .../src/core/analysis/prompt.ts` | first run 21 of 22 passed; the remaining failure was the snapshot test pinned to a placeholder hash, then pinned to the observed hash: 22 passed. Bump enforcement checked by mutating one rubric character (1 failed) and reverting (22 passed) | Biome formatting only |
+
+### Work Unit Evidence (2a-2b)
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run tests/unit/core/analysis/prompt.test.ts tests/unit/core/profileVersion.test.ts`, plus `cacheKey.test.ts` |
+| Runtime harness | Prompt snapshot plus version-bump enforcement (template and output JSON schema hash mapped to `PROMPT_VERSION`); no runtime boundary otherwise |
+| Rollback boundary | Revert the three 2a-2b commits: `src/core/analysis/{prompt,outputSchema,cacheKey}.ts` and their tests; nothing imports them yet |
+
+### Deviations and decisions (2a-2b)
+
+1. `PROMPT_VERSION` stays `analysis-2` (2a-2 has not merged); the A18 rubric sentence is in prefix block 0 and asserted by a substring test. The pinned snapshot hash is `6dfacf79ac0a6307a489c0a1d4a3d446a0c43d081e6159bf76cc7bafb31b47ef`.
+2. `AUDIT_VERSION` is not a cache-key input: `cacheKey` takes exactly four parameters, so the audit version cannot reach it (ADR-29).
+3. The snapshot hashes `PROMPT_TEMPLATE` (every authored string, exported) and `offerAnalysisJsonSchema`, not the built prefix, so profile edits never affect it.
+4. `outputSchema.ts` derives the provider JSON Schema from `offerAnalysisOutputSchema` with `z.toJSONSchema` and drops `$schema`; a test asserts strictness, all six required fields, and no bounds or `$ref` (LLM-2).
+5. Rationale language names live in a small table in `prompt.ts` (`es`, `en`, `ca`); other codes fall back to the bare code. The shared language table arrives in 2a-4 and should replace it.
+6. Prompt text is product-authored English; the claims block is `id: statement [sorted tags]`, the branches block lists rules and `<branchId>/d<index>: text` lines, empty sections render `(none)`.
+7. Neutralization rewrites `</offer_data` (any case) to `<\/offer_data` keeping the original letter case; attributes are neutralized first and then escaped.
