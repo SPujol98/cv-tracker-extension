@@ -563,3 +563,34 @@ Slice on branch `feat/2a-1-ports-cost-text-schemas` (from `main` at `bc14e28`), 
 5. `analysis.ts` defines `Verdict`, `VerdictReason`, `WarningCategory`, `PdfReason` as enum constants and a blob-free PDF shape because `AnalysisResult` needs them before 2a-2 (`CvPdfMeta`) and 2a-4 land; those slices should import or replace them rather than redefine.
 6. `ProviderError` also sets `name = 'ProviderError'`; `LLM_ERROR_CLASSES` is an exported const tuple from which `LlmErrorClass` derives.
 7. Environment: `pnpm install --frozen-lockfile` and `wxt prepare` were run in the worktree (no `node_modules` or `.wxt` there).
+
+## Batch 10: PR 2a-2 split into 2a-2a and 2a-2b (tasks 2a.5-2a.7)
+
+Slice "PR 2a-2" exceeded the owner policy of about 400 changed lines (about 770 authored lines, tests included), so it is split at work-unit commit boundaries into stacked branches, each green on its own: `feat/2a-2a-profile-version` (base `feat/2a-1c-schemas`) and `feat/2a-2b-prompt-cachekey` (base `feat/2a-2a-profile-version`). Local only, not pushed, no PR opened. Mode: Strict TDD.
+
+### Sub-slice 2a-2a: task 2a.5
+
+- [x] 2a.5 Profile schemas, `profileVersion`, `dealbreakerRefs` (PROFILE-8; A4; defines `CvPdfMeta`, `TitleFilter`)
+
+Commit `34d6df0` `feat(core): add profile schemas, profileVersion and dealbreaker refs` (371 additions, 14 deletions).
+
+| Task | Test file | RED (observed) | GREEN (observed) | REFACTOR |
+|---|---|---|---|---|
+| 2a.5 | `tests/unit/core/profileVersion.test.ts` | `pnpm vitest run tests/unit/core/profileVersion.test.ts`: suite failed to load, `Cannot find module .../src/core/analysis/profileVersion.ts`, no tests ran | `pnpm vitest run tests/unit/core`: 6 files, 122 passed (determinism, order independence, each version input, PDF/titleFilter/blocklist exclusion, field-shift collision, `dealbreakerRefs`, id patterns, blank statement) | Biome formatting only |
+| helper | `tests/unit/core/hash.test.ts` | Written after `src/core/hash.ts` (a four-line `crypto.subtle` wrapper extracted for reuse by the cache key); not a true RED. Covered earlier by the RED of the `profileVersion` suite that imports it; known SHA-256 vectors for `abc` and the empty string pass | 2 passed | none |
+
+### Work Unit Evidence (2a-2a)
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run tests/unit/core/profileVersion.test.ts`: 1 file, all tests passed |
+| Runtime harness | N/A: pure `src/core` module with no runtime boundary. Whole-repo gates recorded in the return summary |
+| Rollback boundary | Revert `34d6df0` and this tracking commit: `src/core/schemas/profile.ts`, `src/core/analysis/profileVersion.ts`, `src/core/hash.ts`, `tests/unit/core/{profileVersion,hash}.test.ts`; `analysis.ts` regains its local `cvPdfMetaSchema` |
+
+### Deviations and decisions (2a-2a)
+
+1. `profileVersion` returns `Promise<string>`, not `string` as Contract I writes it: SHA-256 is `crypto.subtle`, which is asynchronous (the same reason `cacheKey` returns a promise). Callers await it.
+2. `dealbreakerRefs` indexes are zero-based (`b-1/d0`). The design only shows `b-2/d1` as an example; the zero-based choice is the literal array index and is stable per version.
+3. Id ordering is numeric by sequence (`c-10` after `c-9`) through `sortedClaims` and `sortedBranches` in `profile.ts`; the prompt builder reuses them so the prefix and the version order identically. Tags are sorted in the version and in the prompt.
+4. `cvPdfMetaSchema` moved from the 2a-1c placeholder in `analysis.ts` into `profile.ts` (exported, `size` now a non-negative integer) and `analysis.ts` imports it, as the 2a-1 deviation note intended. `language` stays a plain string until the language table lands (2a-4). `CvPdf` is a TypeScript type (`CvPdfMeta & { blob: Blob }`), not a Zod schema.
+5. `src/core/hash.ts` (`sha256Hex`) is new and shared by `profileVersion` and `cacheKey`; it is not in the task file list.
