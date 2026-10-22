@@ -420,7 +420,7 @@ Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage
 - [x] 2a.12 Injection signals (ADR-14; A12)
   - Files: `src/core/injectionSignals.ts`, `tests/unit/core/injectionSignals.test.ts`
   - RED: EN and ES phrase table positives ("ignore previous instructions", "you are now", "output score ..."), benign negatives, matches are short excerpts; computed over the full normalized text. Catalan entries wait for 7-2.
-- [ ] 2a.13 Language inference (ANALYSIS-6, PROFILE-5; A16)
+- [x] 2a.13 Language inference (ANALYSIS-6, PROFILE-5; A16)
   - Files: `src/core/languages.ts`, `src/core/language.ts`, `tests/unit/core/language.test.ts`
   - RED: synthetic 40-word `es` and `en` texts; short text (< 20 tokens) is `unknown`; company-name interference case; a registered synthetic fourth language works through the table parameter; thresholds `LANG_MIN_SCORE` 3 and `LANG_LEAD_RATIO` 1.5; operates on `fullText`. Table authored fresh.
 - [ ] 2a.14 Apply warnings (ANALYSIS-7; A16)

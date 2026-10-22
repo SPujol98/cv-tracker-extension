@@ -1,6 +1,7 @@
 // Analysis prompt builder (Contract B; ANALYSIS-2, ANALYSIS-10; ADR-14; amendment A18).
 // The prefix is a pure function of (profile snapshot, outputLanguage, PROMPT_VERSION), so it is
 // byte-identical across offers; offer content only ever appears in the variable block.
+import { languageName } from '../languages.ts';
 import {
   type Branch,
   type Claim,
@@ -14,9 +15,6 @@ import {
  * template hash to this value, so a change without a bump fails.
  */
 export const PROMPT_VERSION = 'analysis-2';
-
-/** Rationale language names. Codes the table does not name are written as the bare code. */
-const LANGUAGE_NAMES: Record<string, string> = { es: 'Spanish', en: 'English', ca: 'Catalan' };
 
 /** Every authored string of the prompt; `rubric` holds the `<outputLanguage>` slot. */
 export const PROMPT_TEMPLATE = {
@@ -64,7 +62,7 @@ function branchLines(branch: Branch): string[] {
 
 /** The three stable prefix blocks: rubric, claims, branches. */
 export function buildPrefix(profile: Profile, outputLanguage: string): string[] {
-  const language = LANGUAGE_NAMES[outputLanguage] ?? outputLanguage;
+  const language = languageName(outputLanguage);
   const claims = sortedClaims(profile.claims).map(claimLine);
   const branches = sortedBranches(profile.branches).flatMap(branchLines);
   return [
