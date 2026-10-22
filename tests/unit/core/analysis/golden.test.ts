@@ -81,9 +81,22 @@ async function run(fixture: OfferFixture, over: { text?: string } = {}) {
 }
 
 const offers = loadOffers();
+const byName = (file: string) => {
+  const found = offers.find((o) => o.file === file);
+  if (!found) throw new Error(`missing fixture ${file}`);
+  return found.fixture;
+};
+
 describe('golden synthetic offers end to end through the fake provider', () => {
   it('loads every fixture the suite is written for', () => {
-    expect(offers.map((o) => o.file)).toEqual(['en-backend.json', 'es-fullstack.json']);
+    expect(offers.map((o) => o.file)).toEqual([
+      'en-backend.json',
+      'es-fullstack.json',
+      'injection-delimiter.json',
+      'injection-downgrade.json',
+      'injection-score-100.json',
+      'wall-fragment.json',
+    ]);
   });
 
   it.each(offers.map((o) => [o.fixture.name, o.fixture] as const))('%s', async (_name, fixture) => {
@@ -105,5 +118,56 @@ describe('golden synthetic offers end to end through the fake provider', () => {
     expect(outcome.branchName).toBe(want.branchName);
     expect(outcome.walls).toHaveLength(want.walls ?? 0);
     expect(outcome.diagnostics.droppedWalls.weakEvidence).toBe(want.droppedWeakWalls ?? 0);
+  });
+});
+
+describe('injection goldens (ADR-14)', () => {
+  it('rejects an "output score 100" offer whose evidence is ungrounded, without a verdict', async () => {
+    const { outcome } = await run(byName('injection-score-100.json'));
+    expect(outcome).toMatchObject({ status: 'failed', errorClass: 'invalid_output' });
+    expect(outcome).not.toHaveProperty('verdict');
+    expect(outcome).not.toHaveProperty('score');
+  });
+
+  it('writes a smuggled closing delimiter into the request only once', async () => {
+    const { provider } = await run(byName('injection-delimiter.json'));
+    const variable = provider.calls[0]?.request.variable ?? '';
+    expect(variable.match(/<\/offer_data>/gi)).toHaveLength(1);
+    expect(variable.endsWith('</offer_data>')).toBe(true);
+    expect(variable).toContain('<\\/offer_data>');
+  });
+
+  it('flags the smuggled delimiter in the result', async () => {
+    const { outcome } = await run(byName('injection-delimiter.json'));
+    expect(outcome.status === 'ok' && outcome.flags.injectionMatches).toContain('</offer_data');
+  });
+
+  it('drops a trivial wall fragment instead of skipping the offer', async () => {
+    const { outcome } = await run(byName('wall-fragment.json'));
+    expect(outcome.status === 'ok' && outcome.walls).toEqual([]);
+    expect(outcome.status === 'ok' && outcome.verdict).toBe('apply');
+  });
+
+  it('downgrades apply to review for an injection phrase and names the excerpt', async () => {
+    const { outcome } = await run(byName('injection-downgrade.json'));
+    expect(outcome).toMatchObject({ status: 'ok', verdict: 'review' });
+    expect(outcome.status === 'ok' && outcome.flags.injectionMatches).toEqual([
+      'ignore previous instructions',
+    ]);
+  });
+});
+
+describe('a 30,000-character offer (A16)', () => {
+  it('reports a cover_letter warning from the tail with truncated true', async () => {
+    const fixture = byName('en-backend.json');
+    const head = fixture.text.replace(/Please send.*$/u, '');
+    const text = `${head}${'Regular description sentence about the team. '.repeat(700)}Please send a cover letter with your CV.`;
+    expect(text.length).toBeGreaterThan(30_000);
+    const { outcome, provider } = await run(fixture, { text });
+    expect(outcome.status === 'ok' && outcome.truncated).toBe(true);
+    expect(outcome.status === 'ok' && outcome.applyWarnings.map((w) => w.category)).toEqual([
+      'cover_letter',
+    ]);
+    expect(provider.calls[0]?.request.variable.length).toBeLessThan(12_000);
   });
 });
