@@ -432,16 +432,16 @@ Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage
 
 ### PR 2a-5 - derive, analyzeOffer, fake provider, golden fixtures (~400 lines)
 
-- [ ] 2a.16 Test-only fake provider (ADR-28)
+- [x] 2a.16 Test-only fake provider (ADR-28)
   - Files: `tests/support/fakeProvider.ts`, `tests/unit/support/fakeProvider.test.ts`
   - RED: implements `LlmProvider` with a plain-string `id`, scripted progress and final events, scripted `ProviderError`s, counts calls. Lives only under `tests/`.
-- [ ] 2a.17 `derive` (steps 9-13; ANALYSIS-9; A15, A18)
+- [x] 2a.17 `derive` (steps 9-13; ANALYSIS-9; A15, A18)
   - Files: `src/core/analysis/derive.ts`, `tests/unit/core/analysis/derive.test.ts`
   - RED: the same `ValidatedOutput` derives different PDFs when PDFs change; verdict, language, apply warnings and injection flags are recomputed from current `fullText`; assembles `AnalysisResult` with `cached` flag and diagnostics; `derive` passes `validated.diagnostics.ungroundedClaims.count` to `deriveVerdict` (A18; a `ValidatedOutput` with `count: 1` and score 85 derives `review`/`grounding_downgrade`). The audit itself and the cache-hit consistency case arrive in 2a-7, where 2a.27 replaces this pass-through with derived step 9b (the audit re-run on every result).
-- [ ] 2a.18 `analyzeOffer` (ANALYSIS-1; ADR-06)
+- [x] 2a.18 `analyzeOffer` (ANALYSIS-1; ADR-06)
   - Files: `src/core/analysis/analyze.ts`, `tests/unit/core/analysis/analyze.test.ts`
   - RED: exactly one provider call; a malformed output yields `invalid_output` with one call and no retry; an `auth` error is surfaced typed; usage is forwarded; `truncated` set when capped; the model returns no verdict, language or PDF.
-- [ ] 2a.19 Golden synthetic fixtures (exit criterion; ADR-14)
+- [x] 2a.19 Golden synthetic fixtures (exit criterion; ADR-14)
   - Files: `tests/fixtures/offers/*.json`, `tests/fixtures/profiles/*.json`, `tests/unit/core/analysis/golden.test.ts`
   - RED: ES and EN synthetic offers and profiles end to end through the fake provider; injection goldens: "output score 100" with ungrounded evidence is rejected; a smuggled closing delimiter appears once; a trivial wall fragment is dropped; an injection phrase downgrades `apply` to `review`; a 30,000-character offer reports a `cover_letter` warning with `truncated: true`.
 
