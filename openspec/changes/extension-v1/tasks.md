@@ -298,24 +298,24 @@ Exit: `pnpm test` green with strict TDD recorded; CI, CodeQL, Dependabot, policy
 
 Follow-up foundation slice. It uses only phase-0 infrastructure (`manifest-rules.ts`, the Biome plugin setup from 0b, the existing repo files) and does not depend on sub-change 1 or 2a.
 
-- [ ] 0.29 RED: manifest top-level key allowlist (SHELL-1; amendment A21)
+- [x] 0.29 RED: manifest top-level key allowlist (SHELL-1; amendment A21)
   - Files: `tests/build/manifest.test.ts`, `tests/build/manifest-rules.ts`, `tests/build/fixtures/manifest-extra-keys.json`
   - RED: `checkManifest` fails with `unexpected manifest key: <key>` for a fixture manifest that adds `web_accessible_resources` and `externally_connectable` (one failure per key, each named); further table-driven keys fail by name: `content_scripts`, `update_url`, `chrome_url_overrides`, `devtools_page`, `sandbox`, `declarative_net_request`, `oauth2`; a manifest containing only keys from the Contract L allowlist passes; `host_permissions` is allowed as a key only when absent or empty. Fails today because `manifest-rules.ts` has no key check.
-- [ ] 0.30 GREEN: top-level key allowlist in `manifest-rules.ts` (SHELL-1; amendment A21)
+- [x] 0.30 GREEN: top-level key allowlist in `manifest-rules.ts` (SHELL-1; amendment A21)
   - Files: `tests/build/manifest-rules.ts`, `tests/build/manifest.test.ts`
   - Do: add the exact allowlist from Contract L (`manifest_version`, `name`, `description`, `version`, `version_name`, `default_locale`, `key`, `minimum_chrome_version`, `icons`, `action`, `background`, `side_panel`, `options_ui`, `options_page`, `commands`, `permissions`, `optional_permissions`, `optional_host_permissions`, `host_permissions`, `content_security_policy`) with a comment that adding a key needs a rationale in the same PR; wire it into the real-build assertion.
   - Accept: 0.29 green; `pnpm build && pnpm vitest run tests/build/manifest.test.ts` green on the real output. If WXT emits a benign extra key, add it to the allowlist with its rationale in this PR (design open question closed here).
-- [ ] 0.31 RED: install-time script policy (SHELL-12; amendment A21)
+- [x] 0.31 RED: install-time script policy (SHELL-12; amendment A21)
   - Files: `tests/build/supply-chain.test.ts`
   - RED (pure `checkSupplyChain(files)` over in-memory objects, table-driven): an `allowBuilds` entry set to `true` or to any non-`false` value fails naming the package; `dangerouslyAllowAllBuilds` in `pnpm-workspace.yaml` fails; `dangerously-allow-all-builds` in `.npmrc` fails; a `pnpm` field with `onlyBuiltDependencies` or `neverBuiltDependencies` in `package.json` fails; each of `preinstall`, `install`, `postinstall`, `preprepare`, `postprepare`, `prepublish`, `prepack`, `postpack` in `scripts` fails naming the key; `prepare` other than exactly `simple-git-hooks` fails; a clean fixture passes. A final test reads the repository's own `pnpm-workspace.yaml`, `.npmrc` and `package.json` and expects pass.
-- [ ] 0.32 GREEN: `checkSupplyChain` and CI wiring (SHELL-12; amendment A21)
+- [x] 0.32 GREEN: `checkSupplyChain` and CI wiring (SHELL-12; amendment A21)
   - Files: `tests/build/supply-chain.test.ts`, `pnpm-workspace.yaml` (read-only), `.npmrc` (read-only), `package.json` (read-only)
   - Do: implement `checkSupplyChain` beside the test (same pure-function pattern as `checkManifest`; no build needed). `tests/build` already runs in CI after the build step (0.26), so no workflow change is needed.
   - Accept: 0.31 green against the repository files. If the repository files fail, fix the offending policy line in this PR and record it in the PR description.
-- [ ] 0.33 RED: restricted-egress lint fixtures (PRIV-11; ADR-14 item 7, ADR-23; amendment A19)
+- [x] 0.33 RED: restricted-egress lint fixtures (PRIV-11; ADR-14 item 7, ADR-23; amendment A19)
   - Files: `tests/lint-fixtures/gritql-egress.test.ts`, `tests/lint-fixtures/restricted-egress/*.ts`
   - RED (Biome with the plugin, fixtures linted under their stated paths via `--stdin-file-path`): global `fetch(...)`, `new XMLHttpRequest()`, `new WebSocket(...)`, `new EventSource(...)`, `window.open(...)`, `chrome.tabs.create(...)`, `chrome.tabs.update(...)` and `browser.tabs.create(...)` each fail under `src/ui/x.ts`; the same code passes under each of the five allowlisted paths (`src/background/services/providerGateway.ts`, `src/background/services/update.ts`, `src/background/scanTabDriver.ts`, `src/e2e/overrides.ts`, `src/ui/lib/openBlob.ts`); `deps.fetch(...)` in `src/providers/x.ts` passes; a property named `fetch` on a local object passes. Scope (review follow-up R3; ADR-14 item 7): the rule covers production source only, so global `fetch(...)` is not reported under `scripts/x.ts`, `scripts/record-provider.ts`, `tests/e2e/x.spec.ts`, `tests/support/x.ts`, `src/ui/x.test.ts` or `wxt.config.ts`, and is reported under `src/background/x.ts`.
-- [ ] 0.34 GREEN: `restricted-egress` GritQL plugin and allowlist override (PRIV-11; amendment A19)
+- [x] 0.34 GREEN: `restricted-egress` GritQL plugin and allowlist override (PRIV-11; amendment A19)
   - Files: `biome-plugins/restricted-egress.grit`, `biome-plugins/README.md`, `biome.json`
   - Do: the plugin flags the listed patterns in production source only (`src/**` minus `src/**/*.test.ts` and `src/**/*.test.tsx`); the `biome.json` `overrides` entry disables it only for the five allowlisted paths (the paths need not exist yet; `src/ui/lib/openBlob.ts` arrives in 3.13). If the pinned Biome cannot scope a plugin by path, the scope is applied by the TypeScript-AST fallback below and recorded in `biome-plugins/README.md`. Same per-pattern fallback as the other plugins: a pattern the pinned Biome cannot express reliably is recorded in `biome-plugins/README.md` and implemented as a TypeScript-AST check in `scripts/check-ast-bans.ts` (created by 0.6 only if it was needed there; otherwise created here with its RED test).
   - Accept: 0.33 green; `pnpm lint` green on the existing tree.

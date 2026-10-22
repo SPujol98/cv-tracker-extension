@@ -11,7 +11,8 @@
       "!tests/lint-fixtures/biome",
       "!tests/lint-fixtures/core-globals",
       "!tests/lint-fixtures/gritql",
-      "!tests/lint-fixtures/gritql-portal"
+      "!tests/lint-fixtures/gritql-portal",
+      "!tests/lint-fixtures/restricted-egress"
     ]
   },
   "formatter": {
@@ -71,6 +72,32 @@
     "./biome-plugins/no-new-function.grit",
     "./biome-plugins/no-html-sinks.grit",
     "./biome-plugins/no-send-beacon.grit",
+    {
+      "path": "./biome-plugins/restricted-egress.grit",
+      "includes": [
+        "**/src/**",
+        "!**/scripts/**",
+        "!**/tests/**",
+        "!**/docs/**",
+        "!**/openspec/**",
+        "!**/public/**",
+        "!**/.github/**",
+        "!**/.wxt/**",
+        "!**/.output/**",
+        "!**/node_modules/**",
+        "!**/wxt.config.ts",
+        "!**/vitest.config.ts",
+        "!**/playwright.config.ts",
+        "!**/.dependency-cruiser.cjs",
+        "!**/src/**/*.test.ts",
+        "!**/src/**/*.test.tsx",
+        "!**/src/background/services/providerGateway.ts",
+        "!**/src/background/services/update.ts",
+        "!**/src/background/scanTabDriver.ts",
+        "!**/src/e2e/overrides.ts",
+        "!**/src/ui/lib/openBlob.ts"
+      ]
+    },
     {
       "path": "./biome-plugins/no-forbidden-portal-strings.grit",
       "includes": ["**", "!**/src/core/guard.ts", "!**/tests/unit/core/guard.test.ts"]
