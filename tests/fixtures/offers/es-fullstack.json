@@ -1,0 +1,39 @@
+{
+  "name": "Spanish fullstack offer with a salary request",
+  "profile": "es-fullstack",
+  "offer": {
+    "source": "generic",
+    "title": "Ingeniero Fullstack",
+    "company": "Example Labs"
+  },
+  "text": "Buscamos un ingeniero fullstack para unirse a nuestro equipo en Example Labs. Trabajarás con los servicios que dan vida a nuestro producto y debes tener experiencia sólida con React y Node en entornos reales. Ofrecemos un equipo cercano y un horario flexible, y estaremos encantados de ayudarte a crecer con nosotros. Indica tu pretensión salarial en la candidatura.",
+  "modelOutput": {
+    "requirements": [
+      {
+        "text": "Experiencia con React y Node",
+        "evidence": "experiencia sólida con React y Node",
+        "must_have": true
+      }
+    ],
+    "fit": [
+      {
+        "requirement": "Experiencia con React y Node",
+        "claim_ids": ["c-1"]
+      }
+    ],
+    "walls": [],
+    "score": 82,
+    "branch_id": "b-1",
+    "rationale": "Strong overlap with the stack and the role."
+  },
+  "expect": {
+    "status": "ok",
+    "verdict": "apply",
+    "verdictReason": "score",
+    "language": "es",
+    "warnings": ["salary_expectation"],
+    "pdfId": "pdf-es",
+    "injectionSuspected": false,
+    "branchName": "Fullstack"
+  }
+}
