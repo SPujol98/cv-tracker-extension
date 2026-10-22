@@ -28,6 +28,13 @@ const violations: Case[] = [
     specifier: pkg,
   })),
   {
+    name: 'core imports the page-side portal readers (PortalReaders stays out of core)',
+    rule: 'core-isolated',
+    from: 'src/core/ports/portal.ts',
+    specifier: '../../portals/readers',
+    target: 'src/portals/readers.ts',
+  },
+  {
     name: 'a portal adapter imports chrome outside inject.ts',
     rule: 'portals-chrome',
     from: 'src/portals/linkedin/adapter.ts',
