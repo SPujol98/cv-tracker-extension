@@ -17,12 +17,8 @@ function decoded(text: string): string {
 }
 
 function hasForbiddenForm(raw: string): boolean {
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch {
-    return true;
-  }
+  // Only called for a URL `isRegistryUrl` already parsed, so this cannot throw.
+  const url = new URL(raw);
   const targets = [url.pathname, url.search];
   return targets.some((target) =>
     [target, decoded(target)].some((text) => FORBIDDEN_FORMS.some((form) => form.test(text))),
