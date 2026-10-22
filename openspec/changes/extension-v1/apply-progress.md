@@ -635,3 +635,23 @@ Fixes for review-67b40bacb9e78932 only. Commit `89f65e6` `fix(core): pin rendere
 | R3-duplicate-id-order | `tests/unit/core/schemas/profile.test.ts` (new) | 5 failed: duplicate claim and branch ids accepted, tie order depended on insertion, NaN ids unordered | `profileSchema` `superRefine` rejects duplicate ids (malformed ids were already rejected by the patterns); comparator is total: numeric suffix (NaN sorts last), then full id string |
 
 The older template plus output-schema hash test is kept. `pnpm test` 393 passed, lint, typecheck, depcruise and repo-policy green.
+
+## Batch 12: PR 2a-3 split into 2a-3a and 2a-3b (tasks 2a.8-2a.10)
+
+Slice "PR 2a-3" came to about 570 authored lines with tests (production about 170, tests about 400), over the owner policy of about 400, so it is split at work-unit boundaries into stacked branches, each green on its own and never separating code from its tests: `feat/2a-3a-shape-score-placeholders` (base `feat/2a-2c-review-fixes`) and `feat/2a-3b-grounding-walls` (base `feat/2a-3a-shape-score-placeholders`). Local only, not pushed, no PR opened. Mode: Strict TDD.
+
+### Sub-slice 2a-3a: task 2a.8
+
+- [x] 2a.8 RED: steps 1-3 (shape, score, placeholders)
+
+Commit `feat(core): add post-validation steps 1-3 (shape, score, placeholders)` (215 additions). `postValidate` runs steps 1-3 and maps the rest through unchanged until 2a-3b; nothing imports it yet.
+
+| Task | Test file | RED (observed) | GREEN (observed) | REFACTOR |
+|---|---|---|---|---|
+| 2a.8 | `tests/unit/core/analysis/postValidate.shape.test.ts` | suite failed to load, `Cannot find module .../src/core/analysis/postValidate.ts`, no tests ran | 29 passed (shape, three bad scores, boundaries 0 and 100, 18 placeholder spellings, requirement and wall text, "string theory" kept, placeholder before grounding, score reported before placeholder) | none needed |
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run tests/unit/core/analysis/postValidate.shape.test.ts`: 1 file, 29 passed |
+| Runtime harness | N/A: pure `src/core` module with no runtime boundary |
+| Rollback boundary | Revert the 2a-3a commit: `src/core/analysis/postValidate.ts` and `tests/unit/core/analysis/postValidate.shape.test.ts` |

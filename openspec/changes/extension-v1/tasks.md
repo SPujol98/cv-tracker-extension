@@ -401,7 +401,7 @@ Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage
 
 ### PR 2a-3 - Post-validation chain (~400 lines)
 
-- [ ] 2a.8 RED: steps 1-3 (shape, score, placeholders) with the placeholder check order (ANALYSIS-4 rules 1 and 4)
+- [x] 2a.8 RED: steps 1-3 (shape, score, placeholders) with the placeholder check order (ANALYSIS-4 rules 1 and 4)
   - Files: `tests/unit/core/analysis/postValidate.shape.test.ts`
   - RED: schema failure is `invalid_output`; score non-integer, below 0, above 100 is `invalid_output` and is not clamped. Placeholder order is fixed: shape (1), score (2), placeholders (3) run before grounding (4), so a placeholder in a requirement that would later be dropped as ungrounded still yields `invalid_output`; with both a bad score and a placeholder the reported cause is the score (earlier step). Placeholders after trim, case-insensitive: whole-string `tbd`, `todo`, `n/a`, `...`, the ellipsis character, `<word>` templates, the type words `string`, `number`, `integer`, `boolean`, `array`, `object`, `null`; substring `lorem ipsum`, `{{...}}`; an empty string after trim; checked fields are exactly `rationale`, every `requirements[].text` and every `walls[].text`; "string theory" (a longer legitimate phrase) is not whole-string `string`.
 - [ ] 2a.9 RED: steps 4-8 (grounding, nothing strong, claim ids, walls, branch) (ANALYSIS-4 rules 2, 3, 5; A3, A10)
