@@ -655,3 +655,33 @@ Commit `feat(core): add post-validation steps 1-3 (shape, score, placeholders)` 
 | Focused test command and exact result | `pnpm vitest run tests/unit/core/analysis/postValidate.shape.test.ts`: 1 file, 29 passed |
 | Runtime harness | N/A: pure `src/core` module with no runtime boundary |
 | Rollback boundary | Revert the 2a-3a commit: `src/core/analysis/postValidate.ts` and `tests/unit/core/analysis/postValidate.shape.test.ts` |
+
+### Sub-slice 2a-3b: tasks 2a.9 and 2a.10
+
+- [x] 2a.9 RED: steps 4-8 (grounding, nothing strong, claim ids, walls, branch)
+- [x] 2a.10 GREEN: `postValidate`
+
+Commit `feat(core): add post-validation steps 4-8 (grounding, claims, walls, branch)` (358 additions, 24 deletions) plus this tracking commit. The slice tasks 2a.8-2a.10 are complete.
+
+| Task | Test file | RED (observed) | GREEN (observed) | REFACTOR |
+|---|---|---|---|---|
+| 2a.9 | `tests/unit/core/analysis/postValidate.rows.test.ts` | against the 2a-3a pass-through: 15 failed, 9 passed (no dropping, no unmatched marking, no branch nulling, no step 5 failure) | see 2a.10 | n/a |
+| 2a.10 | same | n/a | 24 passed in the rows file, 53 across both files; whole suite 446 passed. Mutations checked and reverted: strong floor 12 to 11, grounding floor 3 to 2, wall citation ignoring `unmatched` each fail a test | Biome formatting only |
+
+### Work Unit Evidence (2a-3b)
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run tests/unit/core/analysis/postValidate`: 2 files, 53 passed |
+| Runtime harness | N/A: pure `src/core` module with no runtime boundary |
+| Rollback boundary | Revert the 2a-3b commits: restores the 2a-3a pass-through `postValidate.ts` and removes `postValidate.rows.test.ts` |
+
+### Deviations and decisions (2a-3)
+
+1. The context is `{ requestText, snapshot }`; Contract C also lists `fullText`, which no step 1-8 uses, so it is left out until `derive` needs it (2a-5 passes it to `derive`, not to `postValidate`).
+2. The result is `{ ok: true, output } | { ok: false, errorClass: 'invalid_output', reason }` with `reason` one of `shape`, `score`, `placeholder`, `no_grounded_requirement`, `no_strong_requirement`, so tests and logs can name the failing step.
+3. Diagnostics carry `ungroundedClaims: { count: 0, samples: [], auditVersion: 'audit-1' }` through a local `PENDING_AUDIT_VERSION` constant because `AUDIT_VERSION` does not exist until 2a.26; task 2a.27 replaces it.
+4. Wall reasons are checked in the order ungrounded, weak evidence, then citation; each dropped wall is counted once.
+5. A fit entry that arrives with no claim ids is also marked `unmatched` (an entry "left with no ids"); fit entries for requirements dropped at grounding are kept as the model sent them, as the spec is silent.
+6. An `unmet_must_have` citation resolves against kept `must_have` requirements only, matching fit entries by folded requirement text; a requirement with any matched entry has a claim.
+7. Placeholder angle templates are any whole string of the form `<...>` with no nested angle brackets.
