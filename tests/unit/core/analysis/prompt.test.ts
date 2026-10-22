@@ -215,10 +215,10 @@ describe('rendered prompt snapshot (every byte the model sees)', () => {
   const offerMeta = { source: 'linkedin', title: 'Eng & "Lead"', company: 'Acme <Corp>' };
 
   async function renderedHash(languages: string[]): Promise<string> {
-    const rendered = languages.map((language) => ({
-      language,
-      ...buildPrompt(profile, language, offerText, offerMeta),
-    }));
+    // Rendered bytes only: the language code is not hashed, so the pin cannot move on anything but content.
+    const rendered = languages.map((language) =>
+      buildPrompt(profile, language, offerText, offerMeta),
+    );
     return sha256Hex(JSON.stringify(rendered));
   }
 
@@ -228,7 +228,7 @@ describe('rendered prompt snapshot (every byte the model sees)', () => {
     // fails here unless PROMPT_VERSION is bumped: update both together.
     expect({ version: PROMPT_VERSION, hash }).toEqual({
       version: 'analysis-2',
-      hash: '659872f82b5eb9b376ffb39098d334371fddb362707adee101ff76cdc9c55a5f',
+      hash: 'f00e61161de665999fd3372fedda773d7ccdbccc36c8d531a7852b8c438fbbfc',
     });
   });
 

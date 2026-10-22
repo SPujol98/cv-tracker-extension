@@ -80,7 +80,9 @@ export type CvPdf = CvPdfMeta & { blob: Blob };
 
 /**
  * Numeric part of a `c-<n>` or `b-<n>` id; ids sort by it so `c-10` follows `c-9`. An id the
- * schema would reject has no numeric part and sorts last, so the comparison never sees NaN.
+ * schema would reject is ordered anyway so the comparison never sees NaN: an empty suffix
+ * (`c-`) converts to 0 and sorts first, a non-numeric suffix sorts last, and ties on the numeric
+ * part fall back to the plain string comparison.
  */
 function sequenceOf(id: string): number {
   const sequence = Number(id.slice(id.indexOf('-') + 1));

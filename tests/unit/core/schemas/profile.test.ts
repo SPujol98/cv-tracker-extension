@@ -84,4 +84,9 @@ describe('sortedClaims and sortedBranches', () => {
     expect(orders[1]).toEqual(orders[0]);
     expect(orders[2]).toEqual(orders[0]);
   });
+
+  it('sorts an empty suffix first (it converts to 0) and a non-numeric suffix last', () => {
+    const ids = sortedClaims(['c-1', 'c-x', 'c-', 'c-0'].map(claim)).map((c) => c.id);
+    expect(ids).toEqual(['c-', 'c-0', 'c-1', 'c-x']);
+  });
 });
