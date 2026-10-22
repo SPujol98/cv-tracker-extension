@@ -414,10 +414,10 @@ Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage
 
 ### PR 2a-4 - Verdict, injection signals, language, warnings, PDF (~370 lines)
 
-- [ ] 2a.11 Verdict (ANALYSIS-5; A12, A18)
+- [x] 2a.11 Verdict (ANALYSIS-5; A12, A18)
   - Files: `src/core/analysis/verdict.ts`, `tests/unit/core/verdict.test.ts`
   - RED table: 85, 70, 69, 40, 39; any accepted wall gives `skip` with reason `wall`; `apply` with injection suspected gives `review` with `injection_downgrade`; signals never upgrade and never add walls. A18 rows: input gains `ungroundedClaims: number`; score 85 with `ungroundedClaims: 2` gives `review` with `grounding_downgrade`; score 85 with both injection suspected and `ungroundedClaims: 2` gives `review` with `injection_downgrade` (injection takes precedence as the recorded reason); `ungroundedClaims > 0` never changes a `review` or `skip` (scores 69, 40, 39 and a wall case keep their verdict and reason) and never creates a wall; `VerdictReason` is exactly `wall | score | injection_downgrade | grounding_downgrade`. ANALYSIS-5 (review follow-up R3): the input type is exactly `{ score, acceptedWalls, injectionSuspected, ungroundedClaims }` (a type-level test asserts that passing a `rationale` field does not compile), so the verdict depends on the audit count only, never on rationale text.
-- [ ] 2a.12 Injection signals (ADR-14; A12)
+- [x] 2a.12 Injection signals (ADR-14; A12)
   - Files: `src/core/injectionSignals.ts`, `tests/unit/core/injectionSignals.test.ts`
   - RED: EN and ES phrase table positives ("ignore previous instructions", "you are now", "output score ..."), benign negatives, matches are short excerpts; computed over the full normalized text. Catalan entries wait for 7-2.
 - [ ] 2a.13 Language inference (ANALYSIS-6, PROFILE-5; A16)
