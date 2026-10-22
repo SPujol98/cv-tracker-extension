@@ -67,6 +67,9 @@ function billedUsage(usage: Usage, model: ModelEntry): NonNullable<AnalysisFailu
   };
 }
 
+const isAbortError = (error: unknown): boolean =>
+  error instanceof Error && error.name === 'AbortError';
+
 /** The final event of the one call, or a typed failure. Only a `ProviderError` is converted. */
 async function runCall(
   provider: LlmProvider,
@@ -81,7 +84,10 @@ async function runCall(
   } catch (error) {
     if (error instanceof ProviderError) return error;
     // A transport that was aborted may surface a raw AbortError; the abort is the cause (ADR-21).
-    if (input.signal.aborted) return new ProviderError('cancelled', CANCELLED_MESSAGE);
+    // Any other error (a TypeError, say) is a programming bug and surfaces even when aborted.
+    if (input.signal.aborted && isAbortError(error)) {
+      return new ProviderError('cancelled', CANCELLED_MESSAGE);
+    }
     throw error;
   }
 }
@@ -106,14 +112,16 @@ export async function analyzeOffer(
   if (input.signal.aborted) return failure('cancelled', CANCELLED_MESSAGE, deps.now());
 
   const called = await runCall(deps.provider, request, input);
+  // Once the signal is aborted the abort is the cause, whatever class the transport reported
+  // (ADR-21). A result that lands after the abort is discarded, so the caller never caches or saves
+  // it; the provider already billed that call, so its usage stays on the failure (R4-001).
+  if (input.signal.aborted) {
+    const usage =
+      called && !(called instanceof ProviderError) && billedUsage(called.usage, input.model);
+    return failure('cancelled', CANCELLED_MESSAGE, deps.now(), usage || undefined);
+  }
   if (called instanceof ProviderError) {
     return failure(called.cls, called.message, deps.now());
-  }
-  // A result that lands after the abort is discarded, so the caller never caches or saves it. The
-  // provider already billed that call, so its usage stays on the failure (R4-001).
-  if (input.signal.aborted) {
-    const usage = called && billedUsage(called.usage, input.model);
-    return failure('cancelled', CANCELLED_MESSAGE, deps.now(), usage ?? undefined);
   }
   if (called === null) {
     return failure('invalid_output', 'The provider ended without a final result.', deps.now());

@@ -255,6 +255,49 @@ describe('analyzeOffer cancellation (ADR-21; R3-abort-path-unproved)', () => {
     expect(outcome).not.toHaveProperty('usage');
   });
 
+  it.each(['transient', 'rate_limit', 'auth', 'timeout'] as const)(
+    'maps a %s ProviderError thrown while aborted to cancelled (R3 abort precedence)',
+    async (cls) => {
+      const controller = new AbortController();
+      const provider = createFakeProvider([]);
+      // biome-ignore lint/correctness/useYield: the stub aborts and throws a classified error
+      provider.complete = async function* () {
+        controller.abort();
+        throw new ProviderError(cls, 'late transport failure');
+      };
+      const outcome = await analyzeOffer(input({ signal: controller.signal }), deps(provider));
+      expect(outcome).toMatchObject({ status: 'failed', errorClass: 'cancelled' });
+    },
+  );
+
+  it('keeps the error class of a ProviderError when the signal is not aborted', async () => {
+    const provider = createFakeProvider([new ProviderError('rate_limit', 'slow down')]);
+    const outcome = await analyzeOffer(input(), deps(provider));
+    expect(outcome).toMatchObject({ status: 'failed', errorClass: 'rate_limit' });
+  });
+
+  it('rethrows a programming error even when the signal is aborted (R4-002)', async () => {
+    const controller = new AbortController();
+    const provider = createFakeProvider([]);
+    // biome-ignore lint/correctness/useYield: the stub aborts and then hits a bug
+    provider.complete = async function* () {
+      controller.abort();
+      throw new TypeError('bug');
+    };
+    await expect(
+      analyzeOffer(input({ signal: controller.signal }), deps(provider)),
+    ).rejects.toBeInstanceOf(TypeError);
+  });
+
+  it('rethrows an AbortError when nothing was aborted', async () => {
+    const provider = createFakeProvider([]);
+    // biome-ignore lint/correctness/useYield: the stub throws like a foreign abort
+    provider.complete = async function* () {
+      throw new DOMException('aborted', 'AbortError');
+    };
+    await expect(analyzeOffer(input(), deps(provider))).rejects.toBeInstanceOf(DOMException);
+  });
+
   it('still surfaces a non-abort error that is not a ProviderError', async () => {
     const provider = createFakeProvider([]);
     provider.complete = () => {
