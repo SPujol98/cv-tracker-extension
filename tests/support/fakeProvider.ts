@@ -54,7 +54,10 @@ export interface FakeProvider extends LlmProvider {
   readonly calls: readonly { request: CompletionRequest; key: string }[];
 }
 
-/** Every `complete` call replays the same script and is counted before the first step runs. */
+/**
+ * Every `complete` call replays the same script and is counted before the first step runs. The
+ * signal is checked before each step, so an aborted call yields `cancelled` (ADR-21).
+ */
 export function createFakeProvider(script: readonly FakeStep[]): FakeProvider {
   const calls: { request: CompletionRequest; key: string }[] = [];
   return {
@@ -69,9 +72,11 @@ export function createFakeProvider(script: readonly FakeStep[]): FakeProvider {
     async validateKey(): Promise<KeyCheck> {
       return { result: 'valid' };
     },
-    async *complete(request, key) {
+    async *complete(request, key, { signal }) {
       calls.push({ request, key });
       for (const step of script) {
+        // Like a real adapter (ADR-21), an aborted signal ends the call as `cancelled`.
+        if (signal.aborted) throw new ProviderError('cancelled', 'The request was cancelled.');
         if (step instanceof ProviderError) throw step;
         yield step;
       }

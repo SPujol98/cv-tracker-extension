@@ -87,4 +87,32 @@ describe('createFakeProvider (ADR-28)', () => {
     const provider = createFakeProvider([]);
     await expect(provider.validateKey('k', signal)).resolves.toEqual({ result: 'valid' });
   });
+
+  it('honours an already aborted signal: cancelled before any step, call still counted', async () => {
+    const provider = createFakeProvider([fakeFinal({})]);
+    const controller = new AbortController();
+    controller.abort();
+    const seen: CompletionEvent[] = [];
+    const run = async () => {
+      for await (const event of provider.complete(request, 'k', { signal: controller.signal }))
+        seen.push(event);
+    };
+    await expect(run()).rejects.toMatchObject({ cls: 'cancelled' });
+    expect(seen).toHaveLength(0);
+    expect(provider.callCount).toBe(1);
+  });
+
+  it('honours a signal aborted between steps: stops with cancelled before the next step', async () => {
+    const provider = createFakeProvider([fakeProgress(1), fakeProgress(2), fakeFinal({})]);
+    const controller = new AbortController();
+    const seen: CompletionEvent[] = [];
+    const run = async () => {
+      for await (const event of provider.complete(request, 'k', { signal: controller.signal })) {
+        seen.push(event);
+        controller.abort();
+      }
+    };
+    await expect(run()).rejects.toMatchObject({ cls: 'cancelled' });
+    expect(seen).toHaveLength(1);
+  });
 });

@@ -42,6 +42,8 @@ export interface AnalyzeDeps {
   now(): number;
 }
 
+const CANCELLED_MESSAGE = 'The analysis was cancelled.';
+
 function failure(errorClass: LlmErrorClass, message: string, createdAt: number): AnalysisFailure {
   return { status: 'failed', errorClass, message, createdAt };
 }
@@ -59,6 +61,8 @@ async function runCall(
     return null;
   } catch (error) {
     if (error instanceof ProviderError) return error;
+    // A transport that was aborted may surface a raw AbortError; the abort is the cause (ADR-21).
+    if (input.signal.aborted) return new ProviderError('cancelled', CANCELLED_MESSAGE);
     throw error;
   }
 }
@@ -79,10 +83,15 @@ export async function analyzeOffer(
     maxOutputTokens: ANALYSIS_MAX_OUTPUT_TOKENS,
   };
 
+  // Cancelled before the call: no provider call is made and nothing is derived (ADR-21).
+  if (input.signal.aborted) return failure('cancelled', CANCELLED_MESSAGE, deps.now());
+
   const called = await runCall(deps.provider, request, input);
   if (called instanceof ProviderError) {
     return failure(called.cls, called.message, deps.now());
   }
+  // A result that lands after the abort is discarded, so the caller never caches or saves it.
+  if (input.signal.aborted) return failure('cancelled', CANCELLED_MESSAGE, deps.now());
   if (called === null) {
     return failure('invalid_output', 'The provider ended without a final result.', deps.now());
   }
