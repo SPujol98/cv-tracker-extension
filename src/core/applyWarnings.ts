@@ -93,23 +93,45 @@ function sentences(text: string): string[] {
   return text.split(/(?<=[.!?])\s+(?=[\p{Lu}¿¡])|\s*[•●▪◦]\s*/u).filter((part) => part.length > 0);
 }
 
-function findDirective(sentence: string): RegExpExecArray | null {
-  const direct = DIRECTIVE.exec(sentence);
-  if (direct) return direct;
-  return APPLICATION_CONTEXT.test(sentence) ? MODAL.exec(sentence) : null;
+/** Start index of every match of a cue, in order (cues are whole-word and non-overlapping). */
+function positions(pattern: RegExp, text: string): number[] {
+  const all = new RegExp(pattern.source, `${pattern.flags}g`);
+  return [...text.matchAll(all)].map((match) => match.index);
+}
+
+function directivePositions(sentence: string): number[] {
+  const found = positions(DIRECTIVE, sentence);
+  return APPLICATION_CONTEXT.test(sentence) ? [...found, ...positions(MODAL, sentence)] : found;
+}
+
+/** The closest (directive, cue) pair within `MAX_CUE_GAP`, or null when every pair is too far. */
+function closestPair(directives: number[], cues: number[]): [number, number] | null {
+  let best: [number, number] | null = null;
+  for (const directive of directives) {
+    for (const cuePosition of cues) {
+      const gap = Math.abs(cuePosition - directive);
+      if (gap <= MAX_CUE_GAP && (!best || gap < Math.abs(best[1] - best[0]))) {
+        best = [directive, cuePosition];
+      }
+    }
+  }
+  return best;
 }
 
 function warningFor(sentence: string, category: WarningCategory): ApplyWarning | null {
-  const directive = findDirective(sentence);
-  if (!directive) return null;
+  const directives = directivePositions(sentence);
+  if (directives.length === 0) return null;
   // An email address also looks like a domain: remove it before looking for another site.
   const searchable =
     category === 'external_site'
       ? sentence.replace(EMAIL_ADDRESS, (m) => ' '.repeat(m.length))
       : sentence;
-  const found = CATEGORY_CUES[category].exec(searchable);
-  if (!found || Math.abs(found.index - directive.index) > MAX_CUE_GAP) return null;
-  const start = Math.min(found.index, directive.index);
+  const pair = closestPair(directives, positions(CATEGORY_CUES[category], searchable));
+  if (!pair) return null;
+  // The excerpt starts at the earliest directive that is still close to the chosen cue.
+  const [, chosenCue] = pair;
+  const near = directives.filter((d) => Math.abs(chosenCue - d) <= MAX_CUE_GAP);
+  const start = Math.min(chosenCue, ...near);
   return { category, excerpt: sentence.slice(start, start + APPLY_WARNING_EXCERPT_CHARS).trim() };
 }
 
