@@ -134,6 +134,7 @@ export async function analyzeOffer(
 
   return derive(validated.output, {
     fullText,
+    requestText,
     snapshot: input.snapshot,
     pdfs: input.pdfs,
     meta: {

@@ -1,5 +1,5 @@
-// Deterministic post-validation chain, steps 1-8 (Contract C; ANALYSIS-4; amendments A3, A10).
-// Pure: no clamping, no retries, no provider call. Step 8b (rationale audit) lands in 2a-7.
+// Deterministic post-validation chain, steps 1-8b (Contract C; ANALYSIS-4, ANALYSIS-11; amendments
+// A3, A10, A18). Pure: no clamping, no retries, no provider call.
 
 import {
   type OfferAnalysisOutput,
@@ -9,9 +9,7 @@ import {
 import type { Profile } from '../schemas/profile.ts';
 import { fold, words } from '../text.ts';
 import { dealbreakerRefs } from './profileVersion.ts';
-
-/** Replaced by `AUDIT_VERSION` when step 8b lands (2a.27). */
-const PENDING_AUDIT_VERSION = 'audit-1';
+import { auditRationale, buildCorpus, snapshotIds } from './rationaleAudit.ts';
 
 export interface PostValidateContext {
   /** The capped, normalized offer text (ANALYSIS-3); evidence is grounded against it. */
@@ -155,8 +153,13 @@ export function postValidate(raw: unknown, context: PostValidateContext): PostVa
     droppedWalls,
     removedClaimIds,
     unmatchedFit: fit.filter((f) => f.unmatched).length,
-    // Step 8b (2a-7) fills this in; until then the audit is absent, so the count is zero.
-    ungroundedClaims: { count: 0, samples: [], auditVersion: PENDING_AUDIT_VERSION },
+    // Step 8b: recorded only. It never rejects, rescores, marks fit unmatched or adds a wall, and
+    // derived step 9b recomputes it on every result, so this stored value is never trusted.
+    ungroundedClaims: auditRationale(
+      output.rationale,
+      buildCorpus(context.requestText, context.snapshot),
+      { score: output.score, ids: snapshotIds(context.snapshot) },
+    ),
   };
   return {
     ok: true,
