@@ -10,7 +10,7 @@ Source-ban rules that Biome's built-in rules do not cover. Each plugin is regist
 | `no-html-sinks.grit` | `.innerHTML =`, `.outerHTML =`, `insertAdjacentHTML`, `document.write(ln)` | PRIV-4 |
 | `no-send-beacon.grit` | `navigator.sendBeacon(...)` | PRIV-2 |
 | `no-forbidden-portal-strings.grit` | String literals containing `/jobs-guest/`, `/job-apply/`, `runSearch`, except in `src/core/guard.ts` and `tests/unit/core/guard.test.ts` | PORTAL-6 |
-| `restricted-egress.grit` | Global `fetch(...)`, `new XMLHttpRequest()`, `new WebSocket()`, `new EventSource()`, `window.open(...)`, `chrome.tabs.create/update(...)`, `browser.tabs.create/update(...)`, in production source only (`src/**` minus `src/**/*.test.ts(x)`), except the five allowlisted modules | PRIV-11 |
+| `restricted-egress.grit` | Any bare reference to global `fetch` (calls and aliases such as `const f = fetch`), `globalThis`/`self`/`window` member forms of `fetch(...)`, `new XMLHttpRequest()`, `new WebSocket()`, `new EventSource()` and `open(...)`, `chrome.tabs.create/update(...)`, `browser.tabs.create/update(...)`, in production source only (`src/**` minus tests, non-src top-level paths and the root config files), except the five allowlisted modules | PRIV-11 |
 
 ## Decision record: GritQL versus the TypeScript-AST fallback
 
@@ -31,7 +31,26 @@ single pattern here and implement it in `scripts/check-ast-bans.ts`.
 - `restricted-egress.grit` allowlist: `src/background/services/providerGateway.ts`,
   `src/background/services/update.ts`, `src/background/scanTabDriver.ts`, `src/e2e/overrides.ts`,
   `src/ui/lib/openBlob.ts`. The paths need not exist yet. Adding a path needs a rationale in the
-  same PR and a matching row in `tests/lint-fixtures/gritql-egress.test.ts`. The `**/src/**` glob
-  also matches an absolute ancestor directory named `src`, so keep the checkout outside one.
+  same PR; the egress test derives its allowlist matrix from the plugin `includes` in `biome.json`,
+  so no test edit is needed.
+- Biome 2.5.15 plugin globs match the absolute path and cannot be anchored to the project root, so
+  `**/src/**` also matches an ancestor directory named `src`. The plugin `includes` therefore
+  exclude every non-src top-level path (`scripts`, `tests`, `docs`, and the explicit root files `wxt.config.ts`, `vitest.config.ts`, `playwright.config.ts`, `.dependency-cruiser.cjs`; a `src/**/x.config.ts` stays in scope); a test
+  fails if a tracked source file outside `src/` is not covered by such an exclusion. A production
+  directory named `scripts` or `tests` nested under `src/` would be excluded as well.
+
 - Biome 2.5 prints no per-rule diagnostics in `--stdin-file-path` mode, so the egress fixtures are
   copied to their stated path inside a temporary tree and linted as real files.
+- Canary: because the globs match absolute paths, a checkout under an ancestor directory named like
+  an exclusion (`scripts`, `tests`, `docs`, ...) would silently disable `restricted-egress` for
+  `src/`. A test lints a bare `fetch` at the real `src/ui/__egress_canary__.ts` (removed afterwards)
+  and fails with "an ancestor directory of this checkout matches a plugin exclusion;
+  restricted-egress would be disabled".
+
+### Known limitations of `restricted-egress.grit`
+
+GritQL has no data-flow analysis, so these forms are not reported: rebinding the global object
+(`const g = globalThis; g.fetch(...)`), computed access (`globalThis['fetch'](...)`),
+a renamed destructure (`const { fetch: f } = globalThis`), and indirect calls (`Reflect.apply`, `eval`).
+A shadowing local named `fetch` (a parameter or variable) is reported as a bare reference. The
+fixture `known-limitation-global-alias.ts` pins the first two so a change in behaviour is visible.

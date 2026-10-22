@@ -42,6 +42,25 @@ describe('install-time script policy (SHELL-12)', () => {
     expect(checkSupplyChain(files)).toContain('.npmrc must not set dangerously-allow-all-builds');
   });
 
+  it.each([
+    'dangerously-allow-all-builds',
+    'dangerously-allow-all-builds\n',
+    '  dangerously-allow-all-builds  ',
+  ])('fails a bare .npmrc key (%j)', (line) => {
+    const files = clean();
+    files.npmrc = `registry=https://registry.npmjs.org/\n${line}\n`;
+    expect(checkSupplyChain(files)).toContain('.npmrc must not set dangerously-allow-all-builds');
+  });
+
+  it.each(['onlyBuiltDependencies', 'neverBuiltDependencies'])(
+    'fails a top-level pnpm-workspace.yaml %s',
+    (key) => {
+      const files = clean();
+      files.workspace = { ...files.workspace, [key]: ['esbuild'] };
+      expect(checkSupplyChain(files)).toContain(`pnpm-workspace.yaml must not set ${key}`);
+    },
+  );
+
   it.each(['onlyBuiltDependencies', 'neverBuiltDependencies'])(
     'fails a package.json pnpm field with %s',
     (key) => {
