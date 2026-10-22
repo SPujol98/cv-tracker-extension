@@ -2,6 +2,7 @@
 // of truth for the types below (`z.infer`).
 import { z } from 'zod';
 import { LLM_ERROR_CLASSES } from '../ports/llm.ts';
+import { cvPdfMetaSchema } from './profile.ts';
 
 /** Most samples and longest sample kept for the ungrounded-claim diagnostics (A18). */
 export const MAX_UNGROUNDED_SAMPLES = 5;
@@ -109,20 +110,6 @@ export const WARNING_CATEGORIES = [
   'portfolio',
 ] as const;
 export const PDF_REASONS = ['no_branch', 'language_unknown', 'no_pdf_for_language'] as const;
-
-/**
- * A stored CV PDF without its blob. Profile schemas (task 2a.5) own the stored `CvPdf`; this
- * shape is the blob-free part that a result carries.
- */
-const cvPdfMetaSchema = z.object({
-  id: z.string(),
-  branchId: z.string(),
-  language: z.string(),
-  fileName: z.string(),
-  size: z.number(),
-  sha256: z.string(),
-  addedAt: z.number(),
-});
 
 /** A successful analysis with every field of ANALYSIS-10. */
 export const analysisResultSchema = z.object({
