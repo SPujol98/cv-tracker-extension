@@ -9,14 +9,17 @@ interface PortalEntry {
   source: SourceId;
   /** Matches the apex itself and any subdomain of it. */
   apex: string;
-  /** Anchored; the longest id a portal issues is 20 digits. */
+  /** Anchored, and the one place that bounds an id of that portal. */
   idPattern: RegExp;
   /** The one canonical detail URL for an id that already matches `idPattern`. */
   detailUrl(id: string): string;
 }
 
-/** LinkedIn job ids: 1 to 20 ASCII digits and nothing else (A19). */
-export const LINKEDIN_ID_PATTERN = /^\d{1,20}$/;
+/** LinkedIn job ids are 1 to 20 ASCII digits (A19); this is the only place the limit is stated. */
+const LINKEDIN_ID_DIGITS = String.raw`\d{1,20}`;
+
+/** A LinkedIn job id and nothing else. */
+export const LINKEDIN_ID_PATTERN = new RegExp(`^${LINKEDIN_ID_DIGITS}$`);
 
 const PORTALS: readonly PortalEntry[] = [
   {
@@ -34,7 +37,7 @@ const isOnApex = (hostname: string, apex: string): boolean =>
   hostname === apex || hostname.endsWith(`.${apex}`);
 
 /** `/jobs/view/<id>` and `/jobs/view/<slug>-<id>`, with an optional trailing slash. */
-const LINKEDIN_VIEW_PATH = /^\/jobs\/view\/(?:[^/]*-)?(\d{1,20})\/?$/;
+const LINKEDIN_VIEW_PATH = new RegExp(`^/jobs/view/(?:[^/]*-)?(${LINKEDIN_ID_DIGITS})/?$`);
 
 /** Search and collection pages, where the open job is carried in `currentJobId`. */
 const LINKEDIN_LIST_PATH = /^\/jobs\/(?:search(?:-results)?|collections(?:\/[^/]+)?)\/?$/;
@@ -88,9 +91,9 @@ export function mapUrl(raw: string): { source: SourceId; id: string; canonicalUr
   const linkedin = entryFor('linkedin');
   if (!url || !linkedin || !isOnApex(url.hostname, linkedin.apex)) return null;
   const id = linkedinId(url);
-  const canonicalUrl = id === null ? null : canonicalFor('linkedin', id);
-  if (id === null || canonicalUrl === null) return null;
-  return { source: 'linkedin', id, canonicalUrl };
+  if (id === null) return null;
+  const canonicalUrl = canonicalFor('linkedin', id);
+  return canonicalUrl === null ? null : { source: 'linkedin', id, canonicalUrl };
 }
 
 /**
