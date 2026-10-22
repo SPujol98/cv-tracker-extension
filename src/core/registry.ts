@@ -70,13 +70,17 @@ function parseHttps(raw: string): URL | null {
 }
 
 /**
- * Whether the URL is https on a registered portal host (apex or subdomain). The navigation guard
- * calls this so the registry stays the only place that compares hostnames.
+ * The parsed URL when it is https on a registered portal host (apex or subdomain), else `null`.
+ * The navigation guard calls this so the registry stays the only place that compares hostnames,
+ * and the guard reuses the parse instead of repeating it.
  */
-export function isRegistryUrl(raw: string): boolean {
+export function parseRegistryUrl(raw: string): URL | null {
   const url = parseHttps(raw);
-  return url !== null && PORTALS.some((portal) => isOnApex(url.hostname, portal.apex));
+  return url !== null && PORTALS.some((portal) => isOnApex(url.hostname, portal.apex)) ? url : null;
 }
+
+/** Whether the URL is https on a registered portal host. */
+export const isRegistryUrl = (raw: string): boolean => parseRegistryUrl(raw) !== null;
 
 /** Maps a supported job URL to `{ source, id, canonicalUrl }`, or `null` (PORTAL-1). */
 export function mapUrl(raw: string): { source: SourceId; id: string; canonicalUrl: string } | null {
