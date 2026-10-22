@@ -754,3 +754,36 @@ Commits: `feat(core): add recommended CV PDF pick`, `feat(core): add EN/ES apply
 | Rollback boundary | Revert the two 2a-4c commits; nothing imports either module yet (`derive` arrives in 2a-5) |
 
 Decisions (2a-4c): a warning needs a directive cue and a category cue in one sentence and within 120 characters; sentences split at `.`, `!`, `?` followed by a capital and at bullet glyphs (the normalized text has no newlines). Email addresses are blanked before the external-site cue so an address domain never fires `external_site`. Warnings come back in order of first appearance, one per category, excerpt taken from the normalized (not folded) text. When a (branch, language) pair has several PDFs, `pickPdf` takes the newest by `addedAt` (id breaks ties); `alternatives` are newest first for the same branch. `pickPdf` with a null branch returns an empty `alternatives` list.
+
+### Slice 2a-5: review-d36bfed8b19361b5 advisory fixes and tasks 2a.16 to 2a.19
+
+Stacked sub-branches (each green on its own, base shown): `feat/2a-5a-warning-precision` (base `feat/2a-4c-warnings-pdf`), `feat/2a-5b-fake-provider` (base 5a), `feat/2a-5c-derive` (base 5b), `feat/2a-5d-analyze` (base 5c), `feat/2a-5e-golden-basics` (base 5d), `feat/2a-5f-golden-injection` (base 5e; also holds this progress record and the ticks).
+
+- [x] 2a.16 Test-only fake provider (ADR-28)
+- [x] 2a.17 `derive` (steps 9-13; A15, A18)
+- [x] 2a.18 `analyzeOffer` (ANALYSIS-1; ADR-06)
+- [x] 2a.19 Golden synthetic fixtures (exit criterion; ADR-14)
+
+Commits: `fix(core): require application-instruction context for modal-word warnings`, `fix(core): pick the closest directive and cue pair for apply warnings`, `fix(core): scan every injection phrase occurrence and prove the dedupe`, `test(core): add the test-only fake LLM provider`, `feat(core): derive verdict, language, warnings and PDF from validated output`, `feat(core): add analyzeOffer, the single-call analysis function`, `test(core): add EN and ES golden offers through the fake provider`, `test(core): add injection, wall and long-offer goldens`.
+
+TDD cycle evidence:
+
+| Task | Test file | RED (observed) | GREEN (observed) | REFACTOR |
+|---|---|---|---|---|
+| R3-directive-precision | `tests/unit/core/applyWarnings.test.ts` | 7 of 45 failed: `Experience with GitHub is required.`, `Must know ASP.NET and SQL.`, `Se requiere experiencia con GitHub.` and the other ordinary requirements produced warnings | 45 passed; real instructions (`Please include a link to your GitHub portfolio`, `Apply via our careers site at jobs.example.com`) keep firing | modals moved out of `DIRECTIVE` into `MODAL`, counted only with an application-context word |
+| R3-first-cue-only | same | 3 of 49 failed: a later directive or later category cue close together was missed because only the first occurrence of each was checked | 49 passed, including a still-far case that stays empty | `closestPair` over all occurrences; the excerpt starts at the earliest directive still near the chosen cue, so the existing excerpt test is unchanged |
+| R3-dedupe-unexercised | `tests/unit/core/injectionSignals.test.ts` | the "same excerpt twice" test passed even before the change (the scan only kept the first match per pattern, so the `Set` was never exercised); the companion test (two different excerpts of one pattern plus a repeat) failed: only one excerpt reported | 29 passed in the file; 343 in `tests/unit/core` | scan uses `matchAll`, the `Set` now keeps repeats single |
+| 2a.16 | `tests/unit/support/fakeProvider.test.ts` | suite failed to load, `Cannot find module .../tests/support/fakeProvider.ts` | 7 passed: plain-string id, ordered progress then final, usage/model override, scripted `ProviderError` after earlier events, call counting with recorded request and key, immediate failure still counted, `validateKey` valid | none needed |
+| 2a.17 | `tests/unit/core/analysis/derive.test.ts` | suite failed to load, `Cannot find module .../analysis/derive.ts` | first run 8 of 9; the failure was a wrong test expectation (alternatives are empty when a PDF is picked, as `pickPdf` returns), the test was corrected, not the code: 9 passed (PDFs change, language, warnings and injection from current text, schema-valid result, `count: 1` and score 85 gives `review`/`grounding_downgrade`, wall and review score untouched) | none needed |
+| 2a.18 | `tests/unit/core/analysis/analyze.test.ts` | suite failed to load, `Cannot find module .../analysis/analyze.ts` | 13 passed: one call, request shape, schema holds no verdict/language/pdf, an output with a verdict key is `invalid_output`, malformed output and a missing final event are `invalid_output` with one call, message names the step, `auth` and mid-stream errors typed, a non-`ProviderError` is rethrown, usage and cost forwarded, `truncated` set only above the cap | none needed |
+| 2a.19 | `tests/unit/core/analysis/golden.test.ts` | characterization of already-implemented behavior, so no RED exists. Mutation checks: making `neutralize` a no-op fails the delimiter golden, disabling the weak-evidence wall drop fails both wall goldens (both reverted) | 13 passed: EN and ES offers and profiles end to end, "output score 100" with ungrounded evidence rejected, smuggled closing delimiter once, trivial wall fragment dropped, injection phrase gives `review`/`injection_downgrade`, a 30,000-character offer gives `cover_letter` with `truncated: true` | none needed |
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run tests/unit/core/analysis/analyze.test.ts tests/unit/core/analysis/golden.test.ts` all passed; full `pnpm test` at the tip: 617 passed (575 at 5a, 582 at 5b, 591 at 5c, 604 at 5d, 607 at 5e) |
+| Runtime harness | The golden suite runs the real `analyzeOffer`, post-validation, `derive`, language, warnings and injection tables end to end against the fake provider; no browser boundary exists in this slice (N/A for chrome) |
+| Rollback boundary | Revert any sub-branch top commit pair independently: 5a (warnings, injection), 5b (`tests/support/fakeProvider.ts` only), 5c (`derive.ts`), 5d (`analyze.ts`), 5e and 5f (fixtures and golden test) |
+
+Decisions (2a-5): modal words no longer act as directives on their own; they count only when the sentence also mentions the application (`application`, `applying`, `your CV`, `candidatura`, ...), while application verbs (`send`, `include`, `adjunta`, `indica`, ...) fire alone. `analyzeOffer(input, deps)` takes `key` and `signal` in the input and `{ provider, now }` as deps; it normalizes the text, caps only the request, builds one request (`ANALYSIS_MAX_OUTPUT_TOKENS` 4,096, a design constant not set by the spec), converts only `ProviderError` into a typed failure and rethrows anything else. `derive` takes a `meta` block for the call-level fields and does not yet take `requestText` (only the 2a.27 audit needs it). `diagnostics` pass through from the validated output until 2a.27 replaces them with step 9b. Fixtures are JSON (offer, scripted model output, expected result); the 30,000-character offer is built in the test from the EN fixture.
+
+Review-workload note: authored lines per sub-branch against its base are 135 (5a), 170 (5b), 272 (5c), 321 (5d), 284 (5e) and 224 (5f), all at or under 400.
