@@ -389,7 +389,7 @@ Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage
 
 ### PR 2a-2 - Profile schema, profileVersion, prompt, cache key (~390 lines)
 
-- [ ] 2a.5 Profile schemas, `profileVersion`, `dealbreakerRefs` (PROFILE-8; A4; defines `CvPdfMeta`, `TitleFilter`)
+- [x] 2a.5 Profile schemas, `profileVersion`, `dealbreakerRefs` (PROFILE-8; A4; defines `CvPdfMeta`, `TitleFilter`)
   - Files: `src/core/schemas/profile.ts`, `src/core/analysis/profileVersion.ts`, `tests/unit/core/profileVersion.test.ts`
   - RED: deterministic for identical content; changes on claim statement, tags, set membership, branch name, rules, dealbreakers and output language; does not change on PDF changes, titleFilter or blocklist; independent of insertion order; `dealbreakerRefs` yields `<branchId>/d<index>` stable per version; claim and branch id patterns `c-<n>`, `b-<n>`.
 - [ ] 2a.6 Prompt builder and output schema (ANALYSIS-2, ANALYSIS-3, ANALYSIS-10, ANALYSIS-11; ADR-14, ADR-29; A18)
