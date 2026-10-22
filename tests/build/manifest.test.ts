@@ -59,6 +59,56 @@ describe('manifest rules (negative fixtures)', () => {
   });
 });
 
+describe('manifest top-level key allowlist (SHELL-1, A21)', () => {
+  it('names each unexpected key from the fixture, one failure per key', () => {
+    const problems = checkManifest(fixture('manifest-extra-keys.json')).filter((p) =>
+      p.startsWith('unexpected manifest key:'),
+    );
+    expect(problems.sort()).toEqual([
+      'unexpected manifest key: externally_connectable',
+      'unexpected manifest key: web_accessible_resources',
+    ]);
+  });
+
+  it.each([
+    ['content_scripts', []],
+    ['update_url', 'https://updates.example/crx'],
+    ['chrome_url_overrides', { newtab: 'x.html' }],
+    ['devtools_page', 'devtools.html'],
+    ['sandbox', { pages: ['x.html'] }],
+    ['declarative_net_request', { rule_resources: [] }],
+    ['oauth2', { client_id: 'x' }],
+  ])('rejects %s by name', (key, value) => {
+    const m = { ...fixture('manifest-valid.json'), [key]: value };
+    expect(checkManifest(m)).toContain(`unexpected manifest key: ${key}`);
+  });
+
+  it('accepts a manifest made only of allowlisted keys', () => {
+    const m = {
+      ...fixture('manifest-valid.json'),
+      name: 'x',
+      description: 'x',
+      version: '1.0.0',
+      version_name: '1.0.0',
+      default_locale: 'en',
+      key: 'abc',
+      icons: { '16': 'icon/16.png' },
+      background: { service_worker: 'background.js' },
+      options_ui: { page: 'options.html' },
+      options_page: 'options.html',
+      host_permissions: [],
+    };
+    expect(checkManifest(m).filter((p) => p.startsWith('unexpected manifest key:'))).toEqual([]);
+  });
+
+  it('allows host_permissions only when empty', () => {
+    const m = { ...fixture('manifest-valid.json'), host_permissions: ['https://x.example/*'] };
+    expect(checkManifest(m)).toContain(
+      'host_permissions must be absent, found https://x.example/*',
+    );
+  });
+});
+
 describe('built manifest (production build)', () => {
   let manifest: Record<string, unknown>;
 

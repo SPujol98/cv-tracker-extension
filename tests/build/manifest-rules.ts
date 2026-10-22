@@ -19,6 +19,32 @@ export function allowedOrigins(subchange: number): string[] {
     .sort();
 }
 
+// Exact top-level key allowlist (SHELL-1, amendment A21). Adding a key needs a written rationale in
+// the same PR; a dependency or WXT upgrade that adds another surface (for example
+// `web_accessible_resources` or `externally_connectable`) must fail the build test.
+export const ALLOWED_MANIFEST_KEYS = [
+  'manifest_version',
+  'name',
+  'description',
+  'version',
+  'version_name',
+  'default_locale',
+  'key',
+  'minimum_chrome_version',
+  'icons',
+  'action',
+  'background',
+  'side_panel',
+  'options_ui',
+  'options_page',
+  'commands',
+  'permissions',
+  'optional_permissions',
+  'optional_host_permissions',
+  'host_permissions',
+  'content_security_policy',
+];
+
 type Json = Record<string, unknown>;
 
 function sameSet(actual: unknown, expected: string[]): boolean {
@@ -32,6 +58,9 @@ function extras(actual: unknown, expected: string[]): string[] {
 
 export function checkManifest(m: Json, subchange = CURRENT_SUBCHANGE): string[] {
   const problems: string[] = [];
+  for (const key of Object.keys(m)) {
+    if (!ALLOWED_MANIFEST_KEYS.includes(key)) problems.push(`unexpected manifest key: ${key}`);
+  }
   if (m.manifest_version !== 3) problems.push('manifest_version must be 3');
 
   if (!sameSet(m.permissions, PERMISSIONS)) {
