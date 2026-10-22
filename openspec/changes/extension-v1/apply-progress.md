@@ -515,3 +515,51 @@ rebinding the global object, computed member access, destructuring, indirect cal
 Follow-up (review-d8543a9204b41d70): config-ts glob narrowed to explicit root config files; RED `src/background/x.config.ts` not flagged + drift test failed (2 failed / 88), GREEN 88 passed.
 Fail-open canary test lints a bare `fetch` at the real `src/ui/__egress_canary__.ts` (removed in `finally`); proven RED by temporarily excluding `**/ui/**` (assertion with the ancestor-exclusion message), GREEN on the real config. Not gitignored because Biome skips ignored files.
 README: stdin-mode note moved out of Known limitations, destructuring wording fixed (only a renamed destructure escapes), single `readEgressIncludes()` helper with `EXCLUDE_PREFIX`.
+
+## Batch 9: PR 2a-1 - Ports, cost, text, schemas, tasks 2a.1-2a.4
+
+Slice on branch `feat/2a-1-ports-cost-text-schemas` (from `main` at `bc14e28`), local only, not pushed, no PR opened. Mode: Strict TDD. Cumulative task count after this batch: 31 of 171 (the Status section above was not rewritten here to keep the parallel 0f branch merge-clean; read it together with this batch).
+
+### Completed tasks
+
+- [x] 2a.1 Core ports and catalog types (ADR-01, Contract A)
+- [x] 2a.2 Cost math (LLM-8)
+- [x] 2a.3 Text normalization and folding (ANALYSIS-3; A2, A3, A16)
+- [x] 2a.4 Analysis schemas (ANALYSIS-1, ANALYSIS-10, ANALYSIS-11; A18; defines `Diagnostics`)
+
+### Commits
+
+| Commit | Task | Message |
+|---|---|---|
+| `4f1e18c` | 2a.1 | `feat(core): add runtime and LLM ports and the catalog type shell` |
+| `25fa122` | 2a.2 | `feat(core): add token cost math and token estimate` |
+| `eaa94dc` | 2a.3 | `feat(core): add offer text normalization, folding and head-and-tail cap` |
+| `31f57e7` | 2a.4 | `feat(core): add analysis schemas with ungrounded-claim diagnostics` |
+| (this commit) | tracking | `docs(openspec): record apply progress for slice 2a-1` |
+
+### TDD Cycle Evidence
+
+| Task | Test file | RED (observed) | GREEN (observed) | REFACTOR |
+|---|---|---|---|---|
+| 2a.1 | `tests/unit/core/ports.test.ts` | `pnpm vitest run tests/unit/core/ports.test.ts`: suite failed to load, `Cannot find module '../../../src/core/pricing/catalog.ts'`, no tests ran | Same command: 9 passed. One first-run failure was a test defect (the catalog comment matched the no-import regex), fixed by checking import lines only | Biome formatting only |
+| 2a.2 | `tests/unit/core/cost.test.ts` | Suite failed to load, `Cannot find module '../../../src/core/cost.ts'` | 12 passed (the $0.02 scenario, cached pricing, clamp, zero, `estimated`, `estimateTokens` table) | none |
+| 2a.3 | `tests/unit/core/text.test.ts` | Suite failed to load, `Cannot find module '../../../src/core/text.ts'` | 27 passed (NFC, eight invisible characters, whitespace, fold quotes and dashes, words, cap boundaries, hard-cut fallback) | Biome formatting only |
+| 2a.4 | `tests/unit/core/schemas/analysis.test.ts` | Suite failed to load, `Cannot find module '../../../../src/core/schemas/analysis.ts'` | 37 passed (strict output, `Diagnostics` bounds and `auditVersion`, result round-trip and field completeness, failure without verdict) | Biome formatting only |
+
+### Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run tests/unit/core`: 4 files, 85 tests passed |
+| Runtime harness | N/A for a runtime boundary (pure `src/core` modules, no I/O). Whole-repo gates: `pnpm test` 27 files / 317 passed; `pnpm lint` exit 0; `pnpm typecheck` exit 0; `pnpm depcruise` no violations (27 modules); `pnpm check:repo-policy --all` exit 0 |
+| Rollback boundary | Revert the four slice commits: `src/core/ports/{runtime,llm}.ts`, `src/core/pricing/catalog.ts`, `src/core/cost.ts`, `src/core/text.ts`, `src/core/schemas/analysis.ts` and `tests/unit/core/**`. Nothing else imports them yet |
+
+### Deviations and decisions
+
+1. Review size: 1,052 authored lines against the ~360 forecast (about 540 of them in tests, because the tasks require one RED per rule). Cohesive and not trimmed; `size:exception` recommended, or split at commit boundaries (ports + cost, text, schemas).
+2. `PRICE_CATALOG` is `Record<ProviderId, { displayName, models }>` with empty `models`; `REAL_PROVIDER_IDS` is its keys. No price was invented; 2b.12 fills the entries.
+3. `computeCost` treats `inputTokens` as the total prompt size including cached tokens (uncached = input minus cached, clamped at 0). The design leaves this open; 2b adapters must normalize provider usage to this meaning.
+4. `words` returns the token array (design writes `words(...) >= 2`; callers use `.length`). `normalizeOfferText` removes the whole Unicode `Cf` category, a superset of the spec's listed characters.
+5. `analysis.ts` defines `Verdict`, `VerdictReason`, `WarningCategory`, `PdfReason` as enum constants and a blob-free PDF shape because `AnalysisResult` needs them before 2a-2 (`CvPdfMeta`) and 2a-4 land; those slices should import or replace them rather than redefine.
+6. `ProviderError` also sets `name = 'ProviderError'`; `LLM_ERROR_CLASSES` is an exported const tuple from which `LlmErrorClass` derives.
+7. Environment: `pnpm install --frozen-lockfile` and `wxt prepare` were run in the worktree (no `node_modules` or `.wxt` there).
