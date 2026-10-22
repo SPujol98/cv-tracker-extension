@@ -92,6 +92,32 @@ describe('precision-first negatives', () => {
   });
 });
 
+describe('generic modal words are not directives on their own (R3-directive-precision)', () => {
+  it.each([
+    'Experience with GitHub is required.',
+    'Must know ASP.NET and SQL.',
+    'You should have a portfolio of shipped projects.',
+    'Knowledge of Behance is mandatory for this role.',
+    'Se requiere experiencia con GitHub.',
+    'Debes conocer ASP.NET.',
+    'Es imprescindible dominar Next.js y portafolio de proyectos.',
+    'Four years of experience writing references documentation is necessary.',
+  ])('does not warn for the ordinary requirement %j', (text) => {
+    expect(detectApplyWarnings(text)).toEqual([]);
+  });
+
+  it.each([
+    ['Please include a link to your GitHub portfolio', 'portfolio'],
+    ['Apply via our careers site at jobs.example.com', 'external_site'],
+    ['You must attach a cover letter', 'cover_letter'],
+    ['Debes adjuntar una carta de presentación', 'cover_letter'],
+    ['A cover letter is required with your application', 'cover_letter'],
+    ['Es obligatorio indicar tu pretensión salarial en la candidatura', 'salary_expectation'],
+  ])('still warns for the real instruction %j', (text, category) => {
+    expect(categories(text)).toEqual([category]);
+  });
+});
+
 describe('result shape', () => {
   it('reports one warning per category, from the first match', () => {
     const first = 'Please send a cover letter.';

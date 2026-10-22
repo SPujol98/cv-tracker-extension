@@ -31,8 +31,8 @@ const DIRECTIVE = cue(
   [
     // English
     'please|kindly|send|submit|forward|attach|include|provide|share|tell us|let us know',
-    'indicate|state|specify|mention|describe|upload|visit|register|sign up|go to|must|should',
-    "need to|needs to|required|mandatory|requested|don't forget|do not forget|be sure to",
+    'indicate|state|specify|mention|describe|upload|visit|register|sign up|go to',
+    "don't forget|do not forget|be sure to",
     'e-?mail (?:your|us|the|a|an|me|to)|call (?:us|me|our|the|this|on)|call (?=[+(\\d])',
     'apply (?:at|on|via|through|online|here|by|to|now|with|using|directly|in)|fill (?:in|out)',
     // Spanish
@@ -40,10 +40,26 @@ const DIRECTIVE = cue(
     'incluye|incluir|incluya|indica|ind[ií]canos|indicar|indique|cu[eé]ntanos|comparte|compartir',
     'facilita|facilite|aporta|aportar|aporte|proporciona|proporcione|contacta|escr[ií]benos',
     'escribe|visita|visitar|accede|reg[ií]strate|inscr[ií]bete|rellena|rellenar|solicita',
-    'debes|debe|deben|deber[aá]s|es necesario|se requiere|se ruega|es imprescindible|no olvides',
-    'obligatori[oa]|imprescindible|requerid[oa]|necesari[oa]',
+    'se ruega|no olvides',
     'llama(?:r)? (?:al|a|nuestro)|llama(?:r)? (?=[+(\\d])|ll[aá]manos|aplica (?:en|a|mediante|desde)',
   ].join('|'),
+);
+
+/**
+ * Generic modal words. They say that something is needed, not that the applicant must send it, so
+ * "Experience with GitHub is required" or "Must know ASP.NET" are ordinary requirements. A modal
+ * counts as a directive only when the sentence also speaks of the application itself.
+ */
+const MODAL = cue(
+  [
+    'must|should|need to|needs to|required|mandatory|requested|is expected|are expected',
+    'debes|debe|deben|deber[aá]s|deber[aá]n|es necesario|se requiere|es imprescindible',
+    'obligatori[oa]|imprescindible|requerid[oa]|necesari[oa]',
+  ].join('|'),
+);
+
+const APPLICATION_CONTEXT = cue(
+  'applications?|applying|your (?:cv|r[eé]sum[eé])|tu (?:cv|curr[ií]culum)|candidatura|postulaci[oó]n|solicitud',
 );
 
 const NUMBER_CUE = String.raw`\+\d[\d\s().-]{6,}\d|\(?\d{2,4}\)?[\s.-]\d{3}[\s.-]\d{2,4}(?:[\s.-]\d{2,4})?`;
@@ -77,8 +93,14 @@ function sentences(text: string): string[] {
   return text.split(/(?<=[.!?])\s+(?=[\p{Lu}¿¡])|\s*[•●▪◦]\s*/u).filter((part) => part.length > 0);
 }
 
+function findDirective(sentence: string): RegExpExecArray | null {
+  const direct = DIRECTIVE.exec(sentence);
+  if (direct) return direct;
+  return APPLICATION_CONTEXT.test(sentence) ? MODAL.exec(sentence) : null;
+}
+
 function warningFor(sentence: string, category: WarningCategory): ApplyWarning | null {
-  const directive = DIRECTIVE.exec(sentence);
+  const directive = findDirective(sentence);
   if (!directive) return null;
   // An email address also looks like a domain: remove it before looking for another site.
   const searchable =
