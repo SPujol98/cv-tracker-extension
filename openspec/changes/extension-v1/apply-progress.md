@@ -511,3 +511,7 @@ Addresses the advisory findings of review-18025e497ac184e6 for slice 0f. Strict 
 
 Known limitations (documented in `biome-plugins/README.md`, pinned by `known-limitation-global-alias.ts`):
 rebinding the global object, computed member access, destructuring, indirect calls.
+
+Follow-up (review-d8543a9204b41d70): config-ts glob narrowed to explicit root config files; RED `src/background/x.config.ts` not flagged + drift test failed (2 failed / 88), GREEN 88 passed.
+Fail-open canary test lints a bare `fetch` at the real `src/ui/__egress_canary__.ts` (removed in `finally`); proven RED by temporarily excluding `**/ui/**` (assertion with the ancestor-exclusion message), GREEN on the real config. Not gitignored because Biome skips ignored files.
+README: stdin-mode note moved out of Known limitations, destructuring wording fixed (only a renamed destructure escapes), single `readEgressIncludes()` helper with `EXCLUDE_PREFIX`.

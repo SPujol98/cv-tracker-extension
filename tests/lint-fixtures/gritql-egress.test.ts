@@ -45,6 +45,8 @@ afterAll(() => {
   rmSync(ancestorRoot, { recursive: true, force: true });
 });
 
+// lintAs returns the raw outcome (positive tests assert a diagnostic on it); expectClean asserts the
+// negative case and also rejects vacuous runs.
 // A run only counts when Biome exited normally and reported that it checked the file, so a timeout,
 // a crash or "No files were processed" can never pass a negative case vacuously.
 function lintAs(fixture: string, path: string, project: () => string = () => work) {
@@ -72,9 +74,11 @@ function expectClean(r: ReturnType<typeof lintAs>) {
   expect(r.status).toBe(0);
 }
 
-// The allowlist lives in biome.json (the plugin's negated `**/src/...` includes); derive it here so
-// a path added there is tested automatically.
-function allowedPathsFromBiomeJson(): string[] {
+// The allowlist lives in biome.json (the plugin's negated `**/src/...` includes); read it through
+// one helper so the allowlist derivation and the drift test cannot disagree.
+const EXCLUDE_PREFIX = '!**/';
+
+function readEgressIncludes(): string[] {
   const config = JSON.parse(readFileSync(join(root, 'biome.json'), 'utf8')) as {
     plugins: (string | { path: string; includes?: string[] })[];
   };
@@ -82,9 +86,13 @@ function allowedPathsFromBiomeJson(): string[] {
     (p): p is { path: string; includes?: string[] } =>
       typeof p === 'object' && p.path.endsWith('restricted-egress.grit'),
   );
-  return (plugin?.includes ?? [])
-    .filter((g) => g.startsWith('!**/src/') && !g.includes('*', '!**/'.length))
-    .map((g) => g.slice('!**/'.length));
+  return plugin?.includes ?? [];
+}
+
+function allowedPathsFromBiomeJson(): string[] {
+  return readEgressIncludes()
+    .filter((g) => g.startsWith(`${EXCLUDE_PREFIX}src/`) && !g.includes('*', EXCLUDE_PREFIX.length))
+    .map((g) => g.slice(EXCLUDE_PREFIX.length));
 }
 
 const ALLOWED_PATHS = allowedPathsFromBiomeJson();
@@ -170,19 +178,17 @@ describe('restricted-egress rule (PRIV-11)', () => {
       timeout: 30_000,
     });
     expect(tracked.status).toBe(0);
-    const config = JSON.parse(readFileSync(join(root, 'biome.json'), 'utf8')) as {
-      plugins: (string | { path: string; includes?: string[] })[];
-    };
-    const includes = config.plugins.flatMap((p) =>
-      typeof p === 'object' && p.path.endsWith('restricted-egress.grit') ? (p.includes ?? []) : [],
+    const excluded = new Set(
+      readEgressIncludes()
+        .filter((g) => g.startsWith(EXCLUDE_PREFIX))
+        .map((g) => g.slice(EXCLUDE_PREFIX.length)),
     );
-    const excluded = new Set(includes.filter((g) => g.startsWith('!**/')).map((g) => g.slice(4)));
     const sources = tracked.stdout
       .split('\n')
       .filter((f) => /\.(c|m)?[jt]sx?$/.test(f) && !f.startsWith('src/'));
     const uncovered = sources.filter((f) => {
       if (f.includes('/')) return !excluded.has(`${f.split('/')[0]}/**`);
-      return !(excluded.has(f) || (/\.config\.ts$/.test(f) && excluded.has('*.config.ts')));
+      return !excluded.has(f);
     });
     expect(uncovered).toEqual([]);
   });
@@ -192,6 +198,37 @@ describe('restricted-egress rule (PRIV-11)', () => {
   // rule ever gains data-flow support.
   it('does not report an aliased global object or computed fetch (documented limitation)', () => {
     expectClean(lintAs('known-limitation-global-alias', 'src/ui/x.ts'));
+  });
+
+  // R1/R3: only the root-level config files are excluded, so a config-named file under src/ is linted.
+  it('reports global fetch under src/background/x.config.ts', () => {
+    const { status, output } = lintAs('fetch', 'src/background/x.config.ts');
+    expect(output).toContain('restricted-egress');
+    expect(status).not.toBe(0);
+  });
+
+  // Fail-open canary (ancestor-exclusion-fail-open): plugin globs match absolute paths, so a checkout
+  // under an ancestor directory named like an exclusion (scripts, tests, docs, ...) would silently
+  // disable the rule for src/. Lint a bare fetch at the REAL repository location to detect that. The
+  // canary is not gitignored (Biome would skip it); it is removed in finally and uniquely named.
+  it('flags a bare fetch at the real src/ui location of this checkout', () => {
+    const canary = join(root, 'src/ui/__egress_canary__.ts');
+    try {
+      mkdirSync(dirname(canary), { recursive: true });
+      copyFileSync(join(fixtures, 'fetch.ts'), canary);
+      const result = spawnSync(
+        'pnpm',
+        ['--dir', root, 'exec', 'biome', 'lint', '--colors=off', canary],
+        { cwd: root, encoding: 'utf8', timeout: 60_000, shell: process.platform === 'win32' },
+      );
+      const output = `${result.stdout}${result.stderr}`;
+      const message =
+        'an ancestor directory of this checkout matches a plugin exclusion; restricted-egress would be disabled';
+      expect(output, message).toContain('restricted-egress');
+      expect(result.status, message).not.toBe(0);
+    } finally {
+      rmSync(canary, { force: true });
+    }
   });
 
   it('reports global fetch under src/background/x.ts', () => {
