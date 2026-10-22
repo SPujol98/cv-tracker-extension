@@ -1,6 +1,5 @@
-// Deterministic post-validation chain, steps 1-3 (Contract C; ANALYSIS-4; amendments A3, A10).
-// Pure: no clamping, no retries, no provider call. Steps 4-8 follow in the next sub-slice and
-// step 8b (rationale audit) lands in 2a-7.
+// Deterministic post-validation chain, steps 1-8 (Contract C; ANALYSIS-4; amendments A3, A10).
+// Pure: no clamping, no retries, no provider call. Step 8b (rationale audit) lands in 2a-7.
 
 import {
   type OfferAnalysisOutput,
@@ -8,6 +7,8 @@ import {
   type ValidatedOutput,
 } from '../schemas/analysis.ts';
 import type { Profile } from '../schemas/profile.ts';
+import { fold, words } from '../text.ts';
+import { dealbreakerRefs } from './profileVersion.ts';
 
 /** Replaced by `AUDIT_VERSION` when step 8b lands (2a.27). */
 const PENDING_AUDIT_VERSION = 'audit-1';
@@ -19,7 +20,12 @@ export interface PostValidateContext {
 }
 
 /** Why an output was rejected; each value names the first step that failed. */
-export type InvalidReason = 'shape' | 'score' | 'placeholder';
+export type InvalidReason =
+  | 'shape'
+  | 'score'
+  | 'placeholder'
+  | 'no_grounded_requirement'
+  | 'no_strong_requirement';
 
 export type PostValidateResult =
   | { ok: true; output: ValidatedOutput }
@@ -67,7 +73,32 @@ const invalid = (reason: InvalidReason): PostValidateResult => ({
   reason,
 });
 
-export function postValidate(raw: unknown, _context: PostValidateContext): PostValidateResult {
+/** Evidence floor for walls and for "at least one strong requirement" (A10). */
+const MIN_EVIDENCE_CHARS = 3;
+const STRONG_WORDS = 2;
+const STRONG_CHARS = 12;
+
+/** Evidence is grounded when its folded form is a substring of the folded offer text (A3). */
+function makeGrounding(requestText: string) {
+  const haystack = fold(requestText);
+  const isGrounded = (evidence: string): boolean => {
+    const folded = fold(evidence);
+    return folded.length >= MIN_EVIDENCE_CHARS && haystack.includes(folded);
+  };
+  const isStrong = (evidence: string): boolean => {
+    const folded = fold(evidence);
+    return (
+      isGrounded(evidence) && words(folded).length >= STRONG_WORDS && folded.length >= STRONG_CHARS
+    );
+  };
+  return { isGrounded, isStrong };
+}
+
+type Wall = ValidatedOutput['walls'][number];
+type Diagnostics = ValidatedOutput['diagnostics'];
+
+export function postValidate(raw: unknown, context: PostValidateContext): PostValidateResult {
+  // Steps 1-3: shape, score, placeholders. Placeholders run before grounding on purpose.
   const parsed = offerAnalysisOutputSchema.safeParse(raw);
   if (!parsed.success) return invalid('shape');
   const output = parsed.data;
@@ -75,30 +106,68 @@ export function postValidate(raw: unknown, _context: PostValidateContext): PostV
     return invalid('score');
   }
   if (hasPlaceholder(output)) return invalid('placeholder');
+
+  const { isGrounded, isStrong } = makeGrounding(context.requestText);
+
+  // Steps 4-5: grounding, then at least one kept requirement with strong evidence.
+  const requirements = output.requirements
+    .filter((r) => isGrounded(r.evidence))
+    .map((r) => ({ text: r.text, evidence: r.evidence, mustHave: r.must_have }));
+  if (requirements.length === 0) return invalid('no_grounded_requirement');
+  if (!requirements.some((r) => isStrong(r.evidence))) return invalid('no_strong_requirement');
+
+  // Step 6: claim ids absent from the snapshot are removed; an entry left empty is unmatched.
+  const knownClaimIds = new Set(context.snapshot.claims.map((c) => c.id));
+  let removedClaimIds = 0;
+  const fit = output.fit.map((entry) => {
+    const claimIds = entry.claim_ids.filter((id) => knownClaimIds.has(id));
+    removedClaimIds += entry.claim_ids.length - claimIds.length;
+    return { requirement: entry.requirement, claimIds, unmatched: claimIds.length === 0 };
+  });
+
+  // Step 7: walls need strong evidence and a citation that resolves.
+  const refs = dealbreakerRefs(context.snapshot);
+  const unmetMustHaves = new Set(
+    requirements
+      .filter((r) => r.mustHave)
+      .filter((r) => !fit.some((f) => !f.unmatched && fold(f.requirement) === fold(r.text)))
+      .map((r) => fold(r.text)),
+  );
+  const droppedWalls = { ungrounded: 0, weakEvidence: 0, uncited: 0 };
+  const walls: Wall[] = [];
+  for (const wall of output.walls) {
+    if (!isGrounded(wall.evidence)) droppedWalls.ungrounded++;
+    else if (!isStrong(wall.evidence)) droppedWalls.weakEvidence++;
+    else if (
+      wall.basis === 'dealbreaker' ? !refs.has(wall.ref) : !unmetMustHaves.has(fold(wall.ref))
+    ) {
+      droppedWalls.uncited++;
+    } else walls.push(wall);
+  }
+
+  // Step 8: an unknown or empty branch id becomes null.
+  const branchId = context.snapshot.branches.some((b) => b.id === output.branch_id)
+    ? output.branch_id
+    : null;
+
+  const diagnostics: Diagnostics = {
+    droppedRequirements: output.requirements.length - requirements.length,
+    droppedWalls,
+    removedClaimIds,
+    unmatchedFit: fit.filter((f) => f.unmatched).length,
+    // Step 8b (2a-7) fills this in; until then the audit is absent, so the count is zero.
+    ungroundedClaims: { count: 0, samples: [], auditVersion: PENDING_AUDIT_VERSION },
+  };
   return {
     ok: true,
     output: {
-      requirements: output.requirements.map((r) => ({
-        text: r.text,
-        evidence: r.evidence,
-        mustHave: r.must_have,
-      })),
-      fit: output.fit.map((f) => ({
-        requirement: f.requirement,
-        claimIds: f.claim_ids,
-        unmatched: false,
-      })),
-      walls: output.walls,
+      requirements,
+      fit,
+      walls,
       score: output.score,
-      branchId: output.branch_id === '' ? null : output.branch_id,
+      branchId,
       rationale: output.rationale,
-      diagnostics: {
-        droppedRequirements: 0,
-        droppedWalls: { ungrounded: 0, weakEvidence: 0, uncited: 0 },
-        removedClaimIds: 0,
-        unmatchedFit: 0,
-        ungroundedClaims: { count: 0, samples: [], auditVersion: PENDING_AUDIT_VERSION },
-      },
+      diagnostics,
     },
   };
 }
