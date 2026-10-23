@@ -11,7 +11,9 @@ import {
   MAX_UNGROUNDED_SAMPLE_CHARS,
   MAX_UNGROUNDED_SAMPLES,
 } from '../schemas/analysis.ts';
+import type { Profile } from '../schemas/profile.ts';
 import { fold } from '../text.ts';
+import { dealbreakerRefs } from './profileVersion.ts';
 
 /** Identifies the audit logic; recorded with the ungrounded claims, never a cache-key component. */
 export const AUDIT_VERSION = 'audit-1';
@@ -332,4 +334,26 @@ export function auditRationale(
     ...new Set(ungrounded.map((a) => a.span.trim().slice(0, tables.maxSampleChars))),
   ].slice(0, tables.maxSamples);
   return { count: ungrounded.length, samples, auditVersion: tables.version };
+}
+
+/**
+ * The evidence corpus: the folded request text plus the folded claim statements and tags, branch
+ * names, rules and dealbreakers, one per line. Limited to the inputs of the cache key, so a cache
+ * hit rebuilds the same corpus (ADR-29).
+ */
+export function buildCorpus(requestText: string, snapshot: Profile): string {
+  const lines = [requestText];
+  for (const claim of snapshot.claims) lines.push(claim.statement, ...claim.tags);
+  for (const branch of snapshot.branches)
+    lines.push(branch.name, ...branch.rules, ...branch.dealbreakers);
+  return lines.map(fold).join('\n');
+}
+
+/** The ids whose digits are never assertions: claim and branch ids and dealbreaker references. */
+export function snapshotIds(snapshot: Profile): string[] {
+  return [
+    ...snapshot.claims.map((claim) => claim.id),
+    ...snapshot.branches.map((branch) => branch.id),
+    ...dealbreakerRefs(snapshot).keys(),
+  ];
 }

@@ -4,10 +4,13 @@ import {
   AUDIT_VERSION,
   type AuditTables,
   auditRationale,
+  buildCorpus,
   expandK,
   parseNumber,
+  snapshotIds,
 } from '../../../../src/core/analysis/rationaleAudit.ts';
 import { sha256Hex } from '../../../../src/core/hash.ts';
+import type { Profile } from '../../../../src/core/schemas/profile.ts';
 
 // Contract C "Step 8b numeric parsing": one row per token of the design table, plus the edges of
 // each rule. Values are exact decimal strings (rule 6), never floats.
@@ -269,6 +272,57 @@ describe('auditRationale: count and samples', () => {
     const args = ['Has 5 years and $9k.', 'six years'] as const;
     expect(audit(...args)).toEqual(audit(...args));
     expect(audit(...args).count).toBe(2);
+  });
+});
+
+describe('buildCorpus is limited to cache-key inputs (ADR-29)', () => {
+  const snapshot: Profile = {
+    id: 'active',
+    claims: [
+      { id: 'c-12', statement: 'Led a Team of 8 Engineers', tags: ['Go', 'sre'] },
+      { id: 'c-2', statement: 'Writes “TypeScript”', tags: [] },
+    ],
+    branches: [
+      {
+        id: 'b-7',
+        name: 'Backend',
+        titleFilter: { includeGroups: [], excludeTerms: ['intern'] },
+        rules: ['Prefer 4 day weeks'],
+        dealbreakers: ['No on-call'],
+      },
+    ],
+    companyBlocklist: ['Blocked Co 99'],
+    nextClaimSeq: 13,
+    nextBranchSeq: 8,
+  };
+
+  it('holds the folded request text, claim statements and tags, branch names, rules and dealbreakers', () => {
+    const lines = buildCorpus('We NEED 5 Years', snapshot).split('\n');
+    expect(lines).toEqual(
+      expect.arrayContaining([
+        'we need 5 years',
+        'led a team of 8 engineers',
+        'go',
+        'sre',
+        'writes "typescript"',
+        'backend',
+        'prefer 4 day weeks',
+        'no on-call',
+      ]),
+    );
+    expect(lines).toHaveLength(8);
+  });
+
+  it('does not hold ids, title filters, the blocklist or sequence counters', () => {
+    const corpus = buildCorpus('offer', snapshot);
+    for (const absent of ['c-12', 'b-7', 'intern', 'blocked co', '99', '13']) {
+      expect(corpus).not.toContain(absent);
+    }
+    expect(audit('Has 12 years and 99 days.', corpus).count).toBe(2);
+  });
+
+  it('lists the ids the audit must ignore', () => {
+    expect(snapshotIds(snapshot).sort()).toEqual(['b-7', 'b-7/d0', 'c-12', 'c-2']);
   });
 });
 
