@@ -18,13 +18,32 @@ const FORBIDDEN_FORMS: readonly RegExp[] = [
 /** Percent-decoding rounds applied after the raw text; a value still changing after them is refused. */
 const MAX_DECODE_ROUNDS = 3;
 
+/** A run of well-formed escapes; anything else (`%zz`, a lone `%`) is left as literal text. */
+const ESCAPE_RUN = /(?:%[0-9a-f]{2})+/gi;
+const SINGLE_ESCAPE = /%([0-9a-f]{2})/gi;
+const ASCII_LIMIT = 0x80;
+
+/** Decodes the ASCII escapes of a run whose bytes are not valid UTF-8 as a whole. */
+function decodeAsciiEscapes(run: string): string {
+  return run.replace(SINGLE_ESCAPE, (token, hex: string) => {
+    const code = Number.parseInt(hex, 16);
+    return code < ASCII_LIMIT ? String.fromCharCode(code) : token;
+  });
+}
+
+/**
+ * Decodes every well-formed escape run on its own, so a malformed escape elsewhere in the text
+ * never stops the rest from decoding (R1-001). A run that is not valid UTF-8 still yields its
+ * ASCII escapes, which is all a forbidden form needs.
+ */
 function decodeOnce(text: string): string {
-  try {
-    return decodeURIComponent(text);
-  } catch {
-    // A malformed escape cannot hide a form: the text is treated as already decoded.
-    return text;
-  }
+  return text.replace(ESCAPE_RUN, (run) => {
+    try {
+      return decodeURIComponent(run);
+    } catch {
+      return decodeAsciiEscapes(run);
+    }
+  });
 }
 
 /**

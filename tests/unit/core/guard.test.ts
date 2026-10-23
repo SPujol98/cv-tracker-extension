@@ -121,4 +121,43 @@ describe('isAllowedNavigation rejects disallowed access forms (PORTAL-6)', () =>
     expect(isAllowedNavigation('https://www.linkedin.com/jobs/view/1/?x=%E0%A4%A')).toBe(true);
     expect(isAllowedNavigation('https://www.linkedin.com/jobs-guest/%E0%A4%A')).toBe(false);
   });
+  describe('a malformed escape never stops the rest of the text from decoding (R1-001)', () => {
+    it.each([
+      [
+        'a stray percent sign before an encoded runSearch',
+        'https://www.linkedin.com/jobs/%zz/run%53earch',
+      ],
+      [
+        'a truncated UTF-8 escape before an encoded runSearch',
+        'https://www.linkedin.com/jobs/%E0%A4%A/run%53earch/x',
+      ],
+      [
+        'a truncated UTF-8 escape before an encoded guest form',
+        'https://www.linkedin.com/%E0%A4%A%2Fjobs-guest%2Fx',
+      ],
+      [
+        'a malformed escape after an encoded apply form',
+        'https://www.linkedin.com/jobs/view/1/?n=%2Fjob-apply%zz',
+      ],
+      [
+        'an encoded form beside a malformed escape on the second round',
+        'https://www.linkedin.com/jobs/%25zz/run%2553earch',
+      ],
+    ])('rejects %s', (_name, url) => {
+      expect(isAllowedNavigation(url)).toBe(false);
+    });
+
+    it.each([
+      [
+        'a stray percent sign in a harmless query',
+        'https://www.linkedin.com/jobs/search/?keywords=%zz&currentJobId=1',
+      ],
+      [
+        'a harmless escape beside a malformed one',
+        'https://www.linkedin.com/jobs/search/?keywords=%41%E0%A4%A',
+      ],
+    ])('allows %s', (_name, url) => {
+      expect(isAllowedNavigation(url)).toBe(true);
+    });
+  });
 });
