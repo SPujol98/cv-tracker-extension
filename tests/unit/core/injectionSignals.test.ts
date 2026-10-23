@@ -86,3 +86,17 @@ describe('injectionSignals negatives (precision-first)', () => {
     expect(injectionSignals(text)).toEqual({ suspected: false, matches: [] });
   });
 });
+
+describe('injectionSignals keeps the flags of each phrase (R3-injection-flags-dropped)', () => {
+  it('honours a case-insensitive phrase and still reports every occurrence', () => {
+    const phrases = [/IGNORE previous instructions/i];
+    const text = 'ignore previous instructions. later: ignore previous instructions again';
+    expect(injectionSignals(text, phrases).matches).toEqual(['ignore previous instructions']);
+  });
+
+  it('does not accumulate the global flag when a phrase already carries it', () => {
+    const phrases = [/forget your instructions/g];
+    expect(injectionSignals('forget your instructions', phrases).suspected).toBe(true);
+    expect(injectionSignals('forget your instructions', phrases).suspected).toBe(true);
+  });
+});

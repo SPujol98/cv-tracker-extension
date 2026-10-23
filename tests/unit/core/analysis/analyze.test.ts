@@ -3,13 +3,14 @@ import { type AnalyzeInput, analyzeOffer } from '../../../../src/core/analysis/a
 import { profileVersion } from '../../../../src/core/analysis/profileVersion.ts';
 import { PROMPT_VERSION } from '../../../../src/core/analysis/prompt.ts';
 import { computeCost } from '../../../../src/core/cost.ts';
-import { ProviderError } from '../../../../src/core/ports/llm.ts';
+import { type CompletionEvent, ProviderError } from '../../../../src/core/ports/llm.ts';
 import { analysisOutcomeSchema } from '../../../../src/core/schemas/analysis.ts';
 import type { Profile } from '../../../../src/core/schemas/profile.ts';
 import { ELISION_MARKER, MAX_OFFER_CHARS } from '../../../../src/core/text.ts';
 import {
   createFakeProvider,
   FAKE_MODEL,
+  FAKE_USAGE,
   fakeFinal,
   fakeProgress,
 } from '../../../support/fakeProvider.ts';
@@ -155,6 +156,70 @@ describe('analyzeOffer failures are typed and never retried', () => {
   });
 
   it('does not swallow an error that is not a ProviderError', async () => {
+    const provider = createFakeProvider([]);
+    provider.complete = () => {
+      throw new TypeError('bug');
+    };
+    await expect(analyzeOffer(input(), deps(provider))).rejects.toBeInstanceOf(TypeError);
+  });
+});
+
+describe('analyzeOffer cancellation (ADR-21; R3-abort-path-unproved)', () => {
+  it('returns a typed cancelled failure without calling the provider when already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const provider = createFakeProvider([fakeFinal(goodOutput)]);
+    const outcome = await analyzeOffer(input({ signal: controller.signal }), deps(provider));
+    expect(outcome).toMatchObject({ status: 'failed', errorClass: 'cancelled', createdAt: NOW });
+    expect(outcome).not.toHaveProperty('verdict');
+    expect(provider.callCount).toBe(0);
+  });
+
+  it('returns cancelled when the signal aborts mid-stream (fake honours the signal)', async () => {
+    const controller = new AbortController();
+    const fake = createFakeProvider([fakeProgress(3), fakeFinal(goodOutput)]);
+    const provider = {
+      ...fake,
+      async *complete(...args: Parameters<typeof fake.complete>): AsyncGenerator<CompletionEvent> {
+        for await (const event of fake.complete(...args)) {
+          yield event;
+          controller.abort();
+        }
+      },
+    };
+    const outcome = await analyzeOffer(
+      input({ signal: controller.signal }),
+      deps(provider as unknown as ReturnType<typeof createFakeProvider>),
+    );
+    expect(outcome).toMatchObject({ status: 'failed', errorClass: 'cancelled' });
+    expect(outcome).not.toHaveProperty('score');
+    expect(fake.callCount).toBe(1);
+  });
+
+  it('maps a raw AbortError thrown while the signal is aborted to cancelled', async () => {
+    const controller = new AbortController();
+    const provider = createFakeProvider([]);
+    // biome-ignore lint/correctness/useYield: the stub aborts and throws like a fetch would
+    provider.complete = async function* () {
+      controller.abort();
+      throw new DOMException('aborted', 'AbortError');
+    };
+    const outcome = await analyzeOffer(input({ signal: controller.signal }), deps(provider));
+    expect(outcome).toMatchObject({ status: 'failed', errorClass: 'cancelled' });
+  });
+
+  it('discards a final result that arrives after the abort (nothing is returned for caching)', async () => {
+    const controller = new AbortController();
+    const provider = createFakeProvider([]);
+    provider.complete = async function* () {
+      controller.abort();
+      yield { type: 'final', json: goodOutput, usage: FAKE_USAGE, model: FAKE_MODEL.id };
+    };
+    const outcome = await analyzeOffer(input({ signal: controller.signal }), deps(provider));
+    expect(outcome).toMatchObject({ status: 'failed', errorClass: 'cancelled' });
+  });
+
+  it('still surfaces a non-abort error that is not a ProviderError', async () => {
     const provider = createFakeProvider([]);
     provider.complete = () => {
       throw new TypeError('bug');
