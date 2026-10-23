@@ -6,7 +6,12 @@
 // Catalan unit words and number words are added in sub-change 7 (task 7.4), which bumps
 // `AUDIT_VERSION`; the tables below are EN and ES only.
 
-import { MAX_UNGROUNDED_SAMPLE_CHARS, MAX_UNGROUNDED_SAMPLES } from '../schemas/analysis.ts';
+import {
+  type Diagnostics,
+  MAX_UNGROUNDED_SAMPLE_CHARS,
+  MAX_UNGROUNDED_SAMPLES,
+} from '../schemas/analysis.ts';
+import { fold } from '../text.ts';
 
 /** Identifies the audit logic; recorded with the ungrounded claims, never a cache-key component. */
 export const AUDIT_VERSION = 'audit-1';
@@ -187,4 +192,144 @@ export function expandK(value: string): string {
   const [integer = '', fraction = ''] = value.split('.');
   const padded = fraction.padEnd(GROUP_DIGITS, '0');
   return canonical(integer + padded.slice(0, GROUP_DIGITS), padded.slice(GROUP_DIGITS));
+}
+
+const NUMBER_RUN = /\d+(?:[.,]\d+)*/gu;
+const SEPARATOR_FREE_YEAR = /^\d{4}$/;
+const WORD_RUN = /\p{L}+/gu;
+/** The generic id shapes, so ids of removed claims or branches are ignored as well. */
+const ID_SHAPE = /\b[cb]-\d+(?:\/d\d+)?/giu;
+/** A word character after a unit or code means it is the start of a longer word. */
+const NOT_FOLLOWED_BY_WORD = '(?![\\p{L}\\p{N}])';
+
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
+const blank = (text: string): string => ' '.repeat(text.length);
+
+interface Assertion {
+  /** The literal span of the rationale. */
+  span: string;
+  /** The normalized value as an exact decimal string. */
+  value: string;
+}
+
+interface Matchers {
+  moneyPrefix: RegExp;
+  moneySuffix: RegExp;
+  thousands: RegExp;
+  duration: RegExp;
+}
+
+function matchersFor(tables: AuditTables): Matchers {
+  const signs = `[${escapeRegExp(tables.currencySigns)}]`;
+  const codes = tables.currencyCodes.map(escapeRegExp).join('|');
+  const units = tables.durationUnits.map(escapeRegExp).join('|');
+  return {
+    moneyPrefix: new RegExp(
+      `(?:${signs}|(?<![\\p{L}\\p{N}])(?:${codes})${NOT_FOLLOWED_BY_WORD})\\s*$`,
+      'iu',
+    ),
+    moneySuffix: new RegExp(`^\\s*(?:${signs}|(?:${codes})${NOT_FOLLOWED_BY_WORD})`, 'iu'),
+    thousands: new RegExp(`^${escapeRegExp(tables.thousandsSuffix)}${NOT_FOLLOWED_BY_WORD}`, 'iu'),
+    duration: new RegExp(`^\\+?[\\s-]*(?:${units})${NOT_FOLLOWED_BY_WORD}`, 'iu'),
+  };
+}
+
+/** Replaces every id (known or id-shaped) by spaces of the same length, so spans stay aligned. */
+function maskIds(text: string, ids: readonly string[]): string {
+  let masked = text.replace(ID_SHAPE, blank);
+  for (const id of ids) masked = masked.split(id).join(blank(id));
+  return masked;
+}
+
+/**
+ * Quantitative assertions of the rationale: money (a currency sign or code next to the number, or a
+ * `k` suffix), percentages, durations and calendar years, in that precedence for one number. Bare
+ * counts and the integer equal to `score` are not assertions, nor is a token the parsing rule
+ * rejects.
+ */
+function extractAssertions(
+  rationale: string,
+  options: { score: number; ids: readonly string[] },
+  tables: AuditTables,
+): Assertion[] {
+  const text = maskIds(rationale, options.ids);
+  const match = matchersFor(tables);
+  const found: Assertion[] = [];
+  for (const run of text.matchAll(NUMBER_RUN)) {
+    const token = run[0];
+    const parsed = parseNumber(token);
+    if (parsed === null || parsed === String(options.score)) continue;
+    const start = run.index ?? 0;
+    const end = start + token.length;
+    const before = text.slice(0, start);
+    const after = text.slice(end);
+
+    const prefix = match.moneyPrefix.exec(before);
+    const thousands = match.thousands.test(after);
+    const afterThousands = thousands ? after.slice(tables.thousandsSuffix.length) : after;
+    const suffix = match.moneySuffix.exec(afterThousands);
+    const spanOf = (from: number, to: number, value: string) =>
+      found.push({ span: rationale.slice(from, to), value });
+
+    if (prefix || thousands || suffix) {
+      const stop =
+        end + (thousands ? tables.thousandsSuffix.length : 0) + (suffix?.[0].length ?? 0);
+      spanOf(prefix ? start - prefix[0].length : start, stop, thousands ? expandK(parsed) : parsed);
+      continue;
+    }
+    const percent = /^\s*%/u.exec(after);
+    if (percent) {
+      spanOf(start, end + percent[0].length, parsed);
+      continue;
+    }
+    const unit = match.duration.exec(after);
+    if (unit) {
+      spanOf(start, end + unit[0].length, parsed);
+      continue;
+    }
+    const year = Number(token);
+    if (SEPARATOR_FREE_YEAR.test(token) && year >= tables.yearMin && year <= tables.yearMax) {
+      spanOf(start, end, parsed);
+    }
+  }
+  return found;
+}
+
+/** Every numeric value of the corpus: numbers (a `k` suffix expands them) and number words. */
+function corpusValues(corpus: string, tables: AuditTables): Set<string> {
+  const text = fold(corpus);
+  const { thousands } = matchersFor(tables);
+  const values = new Set<string>();
+  for (const run of text.matchAll(NUMBER_RUN)) {
+    const parsed = parseNumber(run[0]);
+    if (parsed === null) continue;
+    const after = text.slice((run.index ?? 0) + run[0].length);
+    values.add(thousands.test(after) ? expandK(parsed) : parsed);
+  }
+  for (const word of text.matchAll(WORD_RUN)) {
+    const digits = tables.numberWords[word[0]];
+    if (digits !== undefined) values.add(digits);
+  }
+  return values;
+}
+
+/**
+ * Step 8b and derived step 9b. Counts the quantitative assertions of `rationale` whose value is
+ * absent from `corpus` and keeps up to `maxSamples` distinct literal spans of at most
+ * `maxSampleChars` characters. `tables` is a test seam (task 7.4 changes the default tables).
+ */
+export function auditRationale(
+  rationale: string,
+  corpus: string,
+  options: { score: number; ids: readonly string[]; tables?: AuditTables },
+): Diagnostics['ungroundedClaims'] {
+  const tables = options.tables ?? AUDIT_TABLES;
+  const known = corpusValues(corpus, tables);
+  const ungrounded = extractAssertions(rationale, options, tables).filter(
+    (assertion) => !known.has(assertion.value),
+  );
+  const samples = [
+    ...new Set(ungrounded.map((a) => a.span.trim().slice(0, tables.maxSampleChars))),
+  ].slice(0, tables.maxSamples);
+  return { count: ungrounded.length, samples, auditVersion: tables.version };
 }
