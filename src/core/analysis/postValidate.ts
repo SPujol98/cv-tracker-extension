@@ -9,7 +9,7 @@ import {
 import type { Profile } from '../schemas/profile.ts';
 import { fold, words } from '../text.ts';
 import { dealbreakerRefs } from './profileVersion.ts';
-import { auditRationale, buildCorpus, snapshotIds } from './rationaleAudit.ts';
+import { auditOutput } from './rationaleAudit.ts';
 
 export interface PostValidateContext {
   /** The capped, normalized offer text (ANALYSIS-3); evidence is grounded against it. */
@@ -155,11 +155,12 @@ export function postValidate(raw: unknown, context: PostValidateContext): PostVa
     unmatchedFit: fit.filter((f) => f.unmatched).length,
     // Step 8b: recorded only. It never rejects, rescores, marks fit unmatched or adds a wall, and
     // derived step 9b recomputes it on every result, so this stored value is never trusted.
-    ungroundedClaims: auditRationale(
-      output.rationale,
-      buildCorpus(context.requestText, context.snapshot),
-      { score: output.score, ids: snapshotIds(context.snapshot) },
-    ),
+    ungroundedClaims: auditOutput({
+      rationale: output.rationale,
+      score: output.score,
+      requestText: context.requestText,
+      snapshot: context.snapshot,
+    }),
   };
   return {
     ok: true,

@@ -267,6 +267,7 @@ describe('analyzeOffer cancellation (ADR-21; R3-abort-path-unproved)', () => {
       };
       const outcome = await analyzeOffer(input({ signal: controller.signal }), deps(provider));
       expect(outcome).toMatchObject({ status: 'failed', errorClass: 'cancelled' });
+      expect(outcome).not.toHaveProperty('usage');
     },
   );
 
@@ -287,6 +288,93 @@ describe('analyzeOffer cancellation (ADR-21; R3-abort-path-unproved)', () => {
     await expect(
       analyzeOffer(input({ signal: controller.signal }), deps(provider)),
     ).rejects.toBeInstanceOf(TypeError);
+  });
+
+  describe('any error thrown while aborted maps to cancelled, except programming bugs (R4)', () => {
+    const throwing = (controller: AbortController, make: () => unknown) => {
+      const provider = createFakeProvider([]);
+      // biome-ignore lint/correctness/useYield: the stub aborts and throws
+      provider.complete = async function* () {
+        controller.abort(new Error('the caller gave up'));
+        throw make();
+      };
+      return provider;
+    };
+
+    it('maps a rethrown signal.reason that is a plain Error to cancelled', async () => {
+      const controller = new AbortController();
+      const provider = throwing(controller, () => controller.signal.reason);
+      const outcome = await analyzeOffer(input({ signal: controller.signal }), deps(provider));
+      expect(outcome).toMatchObject({ status: 'failed', errorClass: 'cancelled' });
+      expect(outcome).not.toHaveProperty('usage');
+    });
+
+    it('maps an unrelated generic Error thrown while aborted to cancelled', async () => {
+      const controller = new AbortController();
+      const provider = throwing(controller, () => new Error('socket closed'));
+      const outcome = await analyzeOffer(input({ signal: controller.signal }), deps(provider));
+      expect(outcome).toMatchObject({ status: 'failed', errorClass: 'cancelled' });
+    });
+
+    it('maps the TimeoutError of AbortSignal.timeout to cancelled', async () => {
+      const signal = AbortSignal.timeout(5);
+      const provider = createFakeProvider([]);
+      provider.complete = async function* () {
+        await new Promise((resolve) => signal.addEventListener('abort', resolve, { once: true }));
+        yield* [];
+        throw signal.reason;
+      };
+      const outcome = await analyzeOffer(input({ signal }), deps(provider));
+      expect((signal.reason as DOMException).name).toBe('TimeoutError');
+      expect(outcome).toMatchObject({ status: 'failed', errorClass: 'cancelled' });
+    });
+
+    it('maps the reason of an AbortSignal.any composite to cancelled', async () => {
+      const controller = new AbortController();
+      const signal = AbortSignal.any([controller.signal, new AbortController().signal]);
+      const provider = createFakeProvider([]);
+      // biome-ignore lint/correctness/useYield: the stub aborts and throws the reason
+      provider.complete = async function* () {
+        controller.abort(new Error('composite'));
+        throw signal.reason;
+      };
+      const outcome = await analyzeOffer(input({ signal }), deps(provider));
+      expect(outcome).toMatchObject({ status: 'failed', errorClass: 'cancelled' });
+    });
+
+    it('maps a TypeError that is the signal reason to cancelled', async () => {
+      const controller = new AbortController();
+      const reason = new TypeError('abort reason');
+      const provider = createFakeProvider([]);
+      // biome-ignore lint/correctness/useYield: the stub aborts with a TypeError reason
+      provider.complete = async function* () {
+        controller.abort(reason);
+        throw reason;
+      };
+      const outcome = await analyzeOffer(input({ signal: controller.signal }), deps(provider));
+      expect(outcome).toMatchObject({ status: 'failed', errorClass: 'cancelled' });
+    });
+
+    it.each([
+      ['TypeError', () => new TypeError('bug')],
+      ['ReferenceError', () => new ReferenceError('bug')],
+      ['SyntaxError', () => new SyntaxError('bug')],
+    ])('rethrows a %s that is not the signal reason', async (_name, make) => {
+      const controller = new AbortController();
+      const provider = throwing(controller, make);
+      await expect(
+        analyzeOffer(input({ signal: controller.signal }), deps(provider)),
+      ).rejects.toBeInstanceOf(make().constructor as ErrorConstructor);
+    });
+
+    it('rethrows a generic Error when nothing was aborted', async () => {
+      const provider = createFakeProvider([]);
+      // biome-ignore lint/correctness/useYield: the stub throws a foreign error
+      provider.complete = async function* () {
+        throw new Error('socket closed');
+      };
+      await expect(analyzeOffer(input(), deps(provider))).rejects.toThrow('socket closed');
+    });
   });
 
   it('rethrows an AbortError when nothing was aborted', async () => {

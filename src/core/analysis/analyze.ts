@@ -67,8 +67,13 @@ function billedUsage(usage: Usage, model: ModelEntry): NonNullable<AnalysisFailu
   };
 }
 
-const isAbortError = (error: unknown): boolean =>
-  error instanceof Error && error.name === 'AbortError';
+/**
+ * A clear programming bug: it must surface even when the signal is aborted, unless it is the
+ * signal's own reason (a caller may abort with any value, including a TypeError).
+ */
+const isProgrammingBug = (error: unknown, signal: AbortSignal): boolean =>
+  error !== signal.reason &&
+  (error instanceof TypeError || error instanceof ReferenceError || error instanceof SyntaxError);
 
 /** The final event of the one call, or a typed failure. Only a `ProviderError` is converted. */
 async function runCall(
@@ -83,9 +88,10 @@ async function runCall(
     return null;
   } catch (error) {
     if (error instanceof ProviderError) return error;
-    // A transport that was aborted may surface a raw AbortError; the abort is the cause (ADR-21).
-    // Any other error (a TypeError, say) is a programming bug and surfaces even when aborted.
-    if (input.signal.aborted && isAbortError(error)) {
+    // A transport that was aborted may surface the signal's reason, an AbortError, a
+    // TimeoutError or any transport error; the abort is the cause (ADR-21). Only a clear
+    // programming bug (a TypeError, say) surfaces even when aborted.
+    if (input.signal.aborted && !isProgrammingBug(error, input.signal)) {
       return new ProviderError('cancelled', CANCELLED_MESSAGE);
     }
     throw error;
@@ -116,9 +122,13 @@ export async function analyzeOffer(
   // (ADR-21). A result that lands after the abort is discarded, so the caller never caches or saves
   // it; the provider already billed that call, so its usage stays on the failure (R4-001).
   if (input.signal.aborted) {
-    const usage =
-      called && !(called instanceof ProviderError) && billedUsage(called.usage, input.model);
-    return failure('cancelled', CANCELLED_MESSAGE, deps.now(), usage || undefined);
+    const lateFinal = called !== null && !(called instanceof ProviderError);
+    return failure(
+      'cancelled',
+      CANCELLED_MESSAGE,
+      deps.now(),
+      lateFinal ? billedUsage(called.usage, input.model) : undefined,
+    );
   }
   if (called instanceof ProviderError) {
     return failure(called.cls, called.message, deps.now());

@@ -8,7 +8,7 @@ import { inferLanguage } from '../language.ts';
 import type { AnalysisResult, ValidatedOutput } from '../schemas/analysis.ts';
 import type { CvPdfMeta, Profile } from '../schemas/profile.ts';
 import { pickPdf } from './pickPdf.ts';
-import { type AuditTables, auditRationale, buildCorpus, snapshotIds } from './rationaleAudit.ts';
+import { type AuditTables, auditOutput } from './rationaleAudit.ts';
 import { deriveVerdict } from './verdict.ts';
 
 /** Fields of the result that come from the call itself, not from the validated output. */
@@ -40,9 +40,11 @@ export function derive(validated: ValidatedOutput, context: DeriveContext): Anal
   const { fullText, requestText, snapshot, pdfs, meta } = context;
   const injection = injectionSignals(fullText);
   // Step 9b: the stored audit is never trusted; the audit logic is not a cache-key input.
-  const ungroundedClaims = auditRationale(validated.rationale, buildCorpus(requestText, snapshot), {
+  const ungroundedClaims = auditOutput({
+    rationale: validated.rationale,
     score: validated.score,
-    ids: snapshotIds(snapshot),
+    requestText,
+    snapshot,
     tables: context.auditTables,
   });
   const { verdict, reason } = deriveVerdict({

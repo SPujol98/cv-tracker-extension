@@ -3,6 +3,7 @@ import {
   AUDIT_TABLES,
   AUDIT_VERSION,
   type AuditTables,
+  auditOutput,
   auditRationale,
   buildCorpus,
   expandK,
@@ -225,6 +226,27 @@ describe('auditRationale: exclusions and non-assertions', () => {
     expect(audit('Pays EUR 7 and 5 eur.', '').count).toBe(2);
   });
 
+  describe('digits glued to letters are not standalone numbers (R3 left boundary)', () => {
+    it.each([
+      ['ES2019', 'Knows ES2019 modules.'],
+      ['Python3 with a percent sign', 'Ported to Python3%.'],
+      ['a letter-glued duration', 'Fluent in Python3 years of syntax.'],
+      ['an accented letter before the digits', 'Uses Árbol2021 data.'],
+    ])('does not extract %s', (_name, rationale) => {
+      expect(audit(rationale, '').count).toBe(0);
+    });
+
+    it.each([
+      ['a year after a space', 'Joined in 2019 as a lead.', '2019'],
+      ['a year in parentheses', 'Joined (2019) as a lead.', '2019'],
+      ['a year after a hyphen', 'Joined mid-2019 as a lead.', '2019'],
+      ['a duration after a space', 'Has 7 years on Python3.', '7 years'],
+      ['money with a glued currency code', 'Pays USD90000 yearly.', 'USD90000'],
+    ])('still extracts %s', (_name, rationale, span) => {
+      expect(audit(rationale, '').samples).toEqual([span]);
+    });
+  });
+
   it('does not count bare counts', () => {
     expect(audit('Meets 2 of 3 requirements and 4 skills.', '').count).toBe(0);
   });
@@ -326,15 +348,54 @@ describe('buildCorpus is limited to cache-key inputs (ADR-29)', () => {
   });
 });
 
+describe('auditOutput is the one call both step 8b and derived step 9b make', () => {
+  const snapshot: Profile = {
+    id: 'active',
+    claims: [{ id: 'c-12', statement: 'Led a team of 8 engineers', tags: [] }],
+    branches: [],
+    companyBlocklist: [],
+    nextClaimSeq: 13,
+    nextBranchSeq: 1,
+  };
+  const base = { requestText: 'We need 5 years of Go.', snapshot, score: 70 };
+
+  it('grounds a figure from the request text and the snapshot, and ignores snapshot ids', () => {
+    const rationale = 'Has 5 years, a team of 8, and see c-12.';
+    expect(auditOutput({ ...base, rationale })).toEqual({
+      count: 0,
+      samples: [],
+      auditVersion: AUDIT_VERSION,
+    });
+  });
+
+  it('counts a figure that neither the request text nor the snapshot holds', () => {
+    expect(auditOutput({ ...base, rationale: 'Has 9 years and 5 years.' })).toEqual({
+      count: 1,
+      samples: ['9 years'],
+      auditVersion: AUDIT_VERSION,
+    });
+  });
+
+  it('forwards the score exclusion and the injected tables', () => {
+    expect(auditOutput({ ...base, rationale: 'Scored 70 and 3 anys.', score: 70 }).count).toBe(0);
+    const tables = { ...AUDIT_TABLES, version: 'audit-x', durationUnits: ['anys'] };
+    expect(auditOutput({ ...base, rationale: 'Scored 70 and 3 anys.', tables })).toEqual({
+      count: 1,
+      samples: ['3 anys'],
+      auditVersion: 'audit-x',
+    });
+  });
+});
+
 describe('AUDIT_VERSION tracks the audit tables (ADR-29; the PROMPT_VERSION pattern)', () => {
   // A hash of every table and extraction constant. Changing any entry fails this test until
   // `AUDIT_VERSION` is bumped and the new pair is recorded here.
   const PINNED: Record<string, string> = {
-    'audit-1': '66a4068363a45069f30a06bdb7fbe06697795704aaacae06bc7a3559c33a135a',
+    'audit-2': 'b765d7b34fa7c4e1db7e5642ee45f7f70d4439b382707b189a3cf15dbadcfd4d',
   };
 
   it('names the current version', () => {
-    expect(AUDIT_VERSION).toBe('audit-1');
+    expect(AUDIT_VERSION).toBe('audit-2');
   });
 
   it('maps the table hash to the version', async () => {
