@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { derive } from '../../../../src/core/analysis/derive.ts';
+import { AUDIT_VERSION } from '../../../../src/core/analysis/rationaleAudit.ts';
 import {
   analysisResultSchema,
   type ValidatedOutput,
@@ -35,7 +36,7 @@ const validated: ValidatedOutput = {
     droppedWalls: { ungrounded: 0, weakEvidence: 0, uncited: 0 },
     removedClaimIds: 0,
     unmatchedFit: 0,
-    ungroundedClaims: { count: 0, samples: [], auditVersion: 'audit-1' },
+    ungroundedClaims: { count: 0, samples: [], auditVersion: AUDIT_VERSION },
   },
 };
 

@@ -16,7 +16,7 @@ import { fold } from '../text.ts';
 import { dealbreakerRefs } from './profileVersion.ts';
 
 /** Identifies the audit logic; recorded with the ungrounded claims, never a cache-key component. */
-export const AUDIT_VERSION = 'audit-1';
+export const AUDIT_VERSION = 'audit-2';
 
 /**
  * Every table and extraction constant of the audit. A snapshot test hashes this object and maps the
@@ -34,6 +34,11 @@ export interface AuditTables {
   currencyCodes: readonly string[];
   /** Multiplies a number by 1,000 when it directly follows it. */
   thousandsSuffix: string;
+  /**
+   * A character class source: a number directly after one of these (and not after a currency
+   * sign or code) is part of a longer token such as `ES2019` or `Python3`, not an assertion.
+   */
+  gluedLeft: string;
   /** Calendar years are separator-free 4-digit tokens in this inclusive range. */
   yearMin: number;
   yearMax: number;
@@ -119,6 +124,7 @@ export const AUDIT_TABLES: AuditTables = {
   currencySigns: '€$£',
   currencyCodes: ['eur', 'usd', 'gbp'],
   thousandsSuffix: 'k',
+  gluedLeft: '\\p{L}',
   yearMin: 1950,
   yearMax: 2099,
   maxSamples: MAX_UNGROUNDED_SAMPLES,
@@ -219,6 +225,7 @@ interface Matchers {
   moneySuffix: RegExp;
   thousands: RegExp;
   duration: RegExp;
+  gluedLeft: RegExp;
 }
 
 function matchersFor(tables: AuditTables): Matchers {
@@ -233,6 +240,7 @@ function matchersFor(tables: AuditTables): Matchers {
     moneySuffix: new RegExp(`^\\s*(?:${signs}|(?:${codes})${NOT_FOLLOWED_BY_WORD})`, 'iu'),
     thousands: new RegExp(`^${escapeRegExp(tables.thousandsSuffix)}${NOT_FOLLOWED_BY_WORD}`, 'iu'),
     duration: new RegExp(`^\\+?[\\s-]*(?:${units})${NOT_FOLLOWED_BY_WORD}`, 'iu'),
+    gluedLeft: new RegExp(`${tables.gluedLeft}$`, 'u'),
   };
 }
 
@@ -267,31 +275,36 @@ function extractAssertions(
     const after = text.slice(end);
 
     const prefix = match.moneyPrefix.exec(before);
+    if (!prefix && match.gluedLeft.test(before)) continue;
     const thousands = match.thousands.test(after);
     const afterThousands = thousands ? after.slice(tables.thousandsSuffix.length) : after;
     const suffix = match.moneySuffix.exec(afterThousands);
-    const spanOf = (from: number, to: number, value: string) =>
+    const recordAssertion = (from: number, to: number, value: string) =>
       found.push({ span: rationale.slice(from, to), value });
 
     if (prefix || thousands || suffix) {
       const stop =
         end + (thousands ? tables.thousandsSuffix.length : 0) + (suffix?.[0].length ?? 0);
-      spanOf(prefix ? start - prefix[0].length : start, stop, thousands ? expandK(parsed) : parsed);
+      recordAssertion(
+        prefix ? start - prefix[0].length : start,
+        stop,
+        thousands ? expandK(parsed) : parsed,
+      );
       continue;
     }
     const percent = /^\s*%/u.exec(after);
     if (percent) {
-      spanOf(start, end + percent[0].length, parsed);
+      recordAssertion(start, end + percent[0].length, parsed);
       continue;
     }
     const unit = match.duration.exec(after);
     if (unit) {
-      spanOf(start, end + unit[0].length, parsed);
+      recordAssertion(start, end + unit[0].length, parsed);
       continue;
     }
     const year = Number(token);
     if (SEPARATOR_FREE_YEAR.test(token) && year >= tables.yearMin && year <= tables.yearMax) {
-      spanOf(start, end, parsed);
+      recordAssertion(start, end, parsed);
     }
   }
   return found;

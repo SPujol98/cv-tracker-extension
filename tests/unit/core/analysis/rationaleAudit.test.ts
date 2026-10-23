@@ -225,6 +225,27 @@ describe('auditRationale: exclusions and non-assertions', () => {
     expect(audit('Pays EUR 7 and 5 eur.', '').count).toBe(2);
   });
 
+  describe('digits glued to letters are not standalone numbers (R3 left boundary)', () => {
+    it.each([
+      ['ES2019', 'Knows ES2019 modules.'],
+      ['Python3 with a percent sign', 'Ported to Python3%.'],
+      ['a letter-glued duration', 'Fluent in Python3 years of syntax.'],
+      ['an accented letter before the digits', 'Uses Árbol2021 data.'],
+    ])('does not extract %s', (_name, rationale) => {
+      expect(audit(rationale, '').count).toBe(0);
+    });
+
+    it.each([
+      ['a year after a space', 'Joined in 2019 as a lead.', '2019'],
+      ['a year in parentheses', 'Joined (2019) as a lead.', '2019'],
+      ['a year after a hyphen', 'Joined mid-2019 as a lead.', '2019'],
+      ['a duration after a space', 'Has 7 years on Python3.', '7 years'],
+      ['money with a glued currency code', 'Pays USD90000 yearly.', 'USD90000'],
+    ])('still extracts %s', (_name, rationale, span) => {
+      expect(audit(rationale, '').samples).toEqual([span]);
+    });
+  });
+
   it('does not count bare counts', () => {
     expect(audit('Meets 2 of 3 requirements and 4 skills.', '').count).toBe(0);
   });
@@ -330,11 +351,11 @@ describe('AUDIT_VERSION tracks the audit tables (ADR-29; the PROMPT_VERSION patt
   // A hash of every table and extraction constant. Changing any entry fails this test until
   // `AUDIT_VERSION` is bumped and the new pair is recorded here.
   const PINNED: Record<string, string> = {
-    'audit-1': '66a4068363a45069f30a06bdb7fbe06697795704aaacae06bc7a3559c33a135a',
+    'audit-2': 'b765d7b34fa7c4e1db7e5642ee45f7f70d4439b382707b189a3cf15dbadcfd4d',
   };
 
   it('names the current version', () => {
-    expect(AUDIT_VERSION).toBe('audit-1');
+    expect(AUDIT_VERSION).toBe('audit-2');
   });
 
   it('maps the table hash to the version', async () => {
