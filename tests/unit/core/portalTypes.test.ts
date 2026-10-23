@@ -3,6 +3,7 @@
 // DOM lib and prove no page-side reader interface lives in core.
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, expectTypeOf, it } from 'vitest';
@@ -23,11 +24,23 @@ import type {
 const root = resolve(import.meta.dirname, '../../..');
 const portalFile = join(root, 'src/core/ports/portal.ts');
 
+/**
+ * The compiler entry point, resolved through the package (its `exports` map hides `bin/tsc`, so the
+ * path comes from the `bin` field) and run with the current Node, not the `.bin` shell shim, which
+ * does not exist on every platform.
+ */
+function tscEntry(): string {
+  const manifest = createRequire(import.meta.url).resolve('typescript/package.json');
+  const { bin } = JSON.parse(readFileSync(manifest, 'utf8')) as { bin: { tsc: string } };
+  return resolve(manifest, '..', bin.tsc);
+}
+
 /** Compiles one file with the ES library only: a DOM type in it would be an unknown name. */
 function compileWithoutDom(file: string) {
   return spawnSync(
-    join(root, 'node_modules/.bin/tsc'),
+    process.execPath,
     [
+      tscEntry(),
       '--noEmit',
       '--strict',
       '--target',

@@ -111,6 +111,15 @@ export const WARNING_CATEGORIES = [
 ] as const;
 export const PDF_REASONS = ['no_branch', 'language_unknown', 'no_pdf_for_language'] as const;
 
+/** Billed usage of one provider call, priced with the model's catalog price. */
+const usageSchema = z.object({
+  inputTokens: count,
+  outputTokens: count,
+  cachedInputTokens: count,
+  costUsd: z.number().nonnegative(),
+  estimated: z.boolean(),
+});
+
 /** A successful analysis with every field of ANALYSIS-10. */
 export const analysisResultSchema = z.object({
   status: z.literal('ok'),
@@ -131,13 +140,7 @@ export const analysisResultSchema = z.object({
   pdfAlternatives: z.array(cvPdfMetaSchema),
   truncated: z.boolean(),
   cached: z.boolean(),
-  usage: z.object({
-    inputTokens: count,
-    outputTokens: count,
-    cachedInputTokens: count,
-    costUsd: z.number().nonnegative(),
-    estimated: z.boolean(),
-  }),
+  usage: usageSchema,
   modelId: z.string(),
   promptVersion: z.string(),
   profileVersion: z.string(),
@@ -156,6 +159,11 @@ export const analysisFailureSchema = z
     status: z.literal('failed'),
     errorClass: z.enum(LLM_ERROR_CLASSES),
     message: z.string(),
+    /**
+     * Present only when the provider already billed a call whose result was discarded (a final
+     * event that arrived after the abort), so cost tracking is not under-reported (R4-001).
+     */
+    usage: usageSchema.optional(),
     createdAt: z.number(),
   })
   .strict();

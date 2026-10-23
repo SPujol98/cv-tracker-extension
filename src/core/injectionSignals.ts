@@ -33,6 +33,9 @@ const PHRASES: readonly RegExp[] = [
 /**
  * Looks for injection phrases in the full normalized text (not the capped request, so a signal at
  * the end of a long offer is not lost). Matches are short, distinct excerpts of the folded text.
+ *
+ * `phrases` is a test seam: production callers use the default table, and only the unit tests pass
+ * their own entries (to prove flag handling and deduplication).
  */
 export function injectionSignals(
   text: string,

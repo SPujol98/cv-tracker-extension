@@ -6,6 +6,7 @@ import {
   isRegistryUrl,
   LINKEDIN_ID_PATTERN,
   mapUrl,
+  parseRegistryUrl,
 } from '../../../src/core/registry.ts';
 
 const canonical = (id: string) => `https://www.linkedin.com/jobs/view/${id}/`;
@@ -217,5 +218,23 @@ describe('isRegistryUrl is the registry-owned host check the guard uses (PORTAL-
     ['', false],
   ])('%s -> %s', (url, want) => {
     expect(isRegistryUrl(url)).toBe(want);
+  });
+});
+
+describe('parseRegistryUrl hands the parsed URL to the guard (R2)', () => {
+  it('returns the parsed URL for a registry host', () => {
+    const url = parseRegistryUrl('https://es.linkedin.com/jobs/view/1/?x=1');
+    expect(url?.hostname).toBe('es.linkedin.com');
+    expect(url?.search).toBe('?x=1');
+  });
+
+  it.each([
+    'http://www.linkedin.com/',
+    'https://linkedin.com.evil.example/',
+    'https://example.com/',
+    'not a url',
+    '',
+  ])('returns null for %s', (raw) => {
+    expect(parseRegistryUrl(raw)).toBeNull();
   });
 });
