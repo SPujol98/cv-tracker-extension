@@ -3,7 +3,7 @@
 // navigates is rebuilt here from `(source, id)`; nothing read from a page is ever a target (A19).
 // InfoJobs URL shapes are confirmed against S3 fixtures and join this table in sub-change 7.
 
-import type { SourceId } from './ports/portal.ts';
+import type { HostClass, SourceId } from './ports/portal.ts';
 
 interface PortalEntry {
   source: SourceId;
@@ -21,10 +21,12 @@ const LINKEDIN_ID_DIGITS = String.raw`\d{1,20}`;
 /** A LinkedIn job id and nothing else. */
 export const LINKEDIN_ID_PATTERN = new RegExp(`^${LINKEDIN_ID_DIGITS}$`);
 
+const LINKEDIN_APEX = 'linkedin.com';
+
 const PORTALS: readonly PortalEntry[] = [
   {
     source: 'linkedin',
-    apex: 'linkedin.com',
+    apex: LINKEDIN_APEX,
     idPattern: LINKEDIN_ID_PATTERN,
     detailUrl: (id) => `https://www.linkedin.com/jobs/view/${id}/`,
   },
@@ -35,6 +37,75 @@ const entryFor = (source: SourceId): PortalEntry | undefined =>
 
 const isOnApex = (hostname: string, apex: string): boolean =>
   hostname === apex || hostname.endsWith(`.${apex}`);
+
+/**
+ * Every portal apex `classifyHost` recognizes (PORTAL-11). InfoJobs is classified here before its
+ * URL shapes join `PORTALS` in sub-change 7, so a host check never lags an adapter.
+ */
+const PORTAL_APEXES: readonly { source: SourceId; apex: string }[] = [
+  { source: 'linkedin', apex: LINKEDIN_APEX },
+  { source: 'infojobs', apex: 'infojobs.net' },
+];
+
+/**
+ * Widely used applicant-tracking hosts, authored fresh as data only (A20). A match is
+ * informational: it never allows navigation or reading, so an incomplete list only shows the
+ * unverified-source chip more often. Extended by PR.
+ */
+export const KNOWN_ATS_APEXES: readonly string[] = [
+  'greenhouse.io',
+  'lever.co',
+  'ashbyhq.com',
+  'workable.com',
+  'smartrecruiters.com',
+  'myworkdayjobs.com',
+  'bamboohr.com',
+  'recruitee.com',
+  'teamtailor.com',
+  'personio.com',
+  'jobvite.com',
+  'icims.com',
+];
+
+const unverified = (
+  host: string | null,
+  reason: Extract<HostClass, { kind: 'unverified' }>['reason'],
+): HostClass => ({
+  kind: 'unverified',
+  host,
+  reason,
+});
+
+/**
+ * The single host verdict (PORTAL-11; A20). It parses with WHATWG and fails closed, without any
+ * normalization, on: an unparseable URL, a scheme other than https, user information, a
+ * non-default port (WHATWG already drops `:443`), a trailing dot and a punycode label (WHATWG
+ * turns Unicode hosts into punycode, so homographs land here). A host then matches an apex only
+ * when it equals it or ends with `.` plus the apex; portals are checked before the ATS table.
+ * No other `src/core` module compares hostnames.
+ */
+export function classifyHost(raw: string): HostClass {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return unverified(null, 'unparseable');
+  }
+  const host = url.hostname === '' ? null : url.hostname;
+  if (url.protocol !== 'https:') return unverified(host, 'not_https');
+  if (url.username !== '' || url.password !== '') return unverified(host, 'userinfo');
+  if (url.port !== '') return unverified(host, 'port');
+  if (url.hostname.endsWith('.')) return unverified(host, 'trailing_dot');
+  if (url.hostname.split('.').some((label) => label.startsWith('xn--'))) {
+    return unverified(host, 'punycode');
+  }
+  const portal = PORTAL_APEXES.find(({ apex }) => isOnApex(url.hostname, apex));
+  if (portal) return { kind: 'portal', source: portal.source, host: url.hostname };
+  if (KNOWN_ATS_APEXES.some((apex) => isOnApex(url.hostname, apex))) {
+    return { kind: 'known_ats', host: url.hostname };
+  }
+  return unverified(host, 'unknown_host');
+}
 
 /** `/jobs/view/<id>` and `/jobs/view/<slug>-<id>`, with an optional trailing slash. */
 const LINKEDIN_VIEW_PATH = new RegExp(`^/jobs/view/(?:[^/]*-)?(${LINKEDIN_ID_DIGITS})/?$`);
