@@ -447,19 +447,19 @@ Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage
 
 ### PR 2a-6 - Portal core and coverage gate (~385 lines)
 
-- [ ] 2a.20 Portal port types (Contract E; PORTAL-3, PORTAL-11, PRIV-11; A19, A20)
+- [x] 2a.20 Portal port types (Contract E; PORTAL-3, PORTAL-11, PRIV-11; A19, A20)
   - Files: `src/core/ports/portal.ts`, `tests/unit/core/portalTypes.test.ts`
   - RED: `SourceId`, `PageState`, `ReadResult`, `RawSearchItem`, `SearchItem` (= `RawSearchItem` plus worker-built `canonicalUrl`), `OfferDetail`, `GenericPreview` (title and text only, no URL), `HostClass`, `PageMarkers`, `ClassifyTables`, `PortalAdapter` (with `idPattern: RegExp` and `canonicalFor(id): string | null`) are DOM-free (a compile-time check plus a dependency-cruiser fixture); `PortalReaders.readSearchResults` returns `ReadResult<RawSearchItem[]>` (type-level assertion that no URL field exists on a reader result); no `PortalReaders` in core.
-- [ ] 2a.21 Registry, `mapUrl`, `canonicalFor`, `isAllowedNavigation`, `canonicalizeGenericUrl` (PORTAL-1 LinkedIn, PORTAL-3, MANUAL-3, PORTAL-6; A19)
+- [x] 2a.21 Registry, `mapUrl`, `canonicalFor`, `isAllowedNavigation`, `canonicalizeGenericUrl` (PORTAL-1 LinkedIn, PORTAL-3, MANUAL-3, PORTAL-6; A19)
   - Files: `src/core/registry.ts`, `tests/unit/core/registry.test.ts`
   - RED (A19 additions first): registry `canonicalFor(source, id)` returns the canonical detail URL only when the id matches the adapter id pattern (LinkedIn `/^\d{1,20}$/`) and returns `null` otherwise (`'12 34'`, `'../x'`, a 21-digit id, an empty string, an id containing `/` or `?`); the result passes `mapUrl` round trip (`mapUrl(canonicalFor('linkedin', '123')).id === '123'`) and `isAllowedNavigation`. Existing cases: `/jobs/view/<id>` and `/jobs/view/<slug>-<id>/`; `currentJobId=<id>` on search and collection URLs; tracking parameters removed; any `*.linkedin.com` subdomain including country subdomains; canonical `https://www.linkedin.com/jobs/view/<id>/`; idempotent; unsupported URLs return null; generic canonicalization lowercases host, drops fragment, drops default port, removes `utm_*`, and two URLs differing only by fragment collapse. Host table is the single source for `hostPermissions`.
-- [ ] 2a.22 Navigation guard (PORTAL-6)
+- [x] 2a.22 Navigation guard (PORTAL-6)
   - Files: `src/core/guard.ts`, `tests/unit/core/guard.test.ts`
   - RED: only https on registry hosts; rejects `/jobs-guest/`, `/job-apply/`, `runSearch` case-insensitively in path or query. These strings exist only in this file and its test (the 0.8 plugin passes).
-- [ ] 2a.23 `classify` precedence (PORTAL-5; A13)
+- [x] 2a.23 `classify` precedence (PORTAL-5; A13)
   - Files: `src/core/classify.ts`, `tests/unit/core/classify.test.ts`
   - RED table: rate-limit status wins over a login marker; login before authwall before checkpoint; no content root gives `unreadable_shell`; otherwise `ok`; `unreadable_shell` is not a wall.
-- [ ] 2a.24 Enable the coverage threshold
+- [x] 2a.24 Enable the coverage threshold
   - Files: `vitest.config.ts`
   - Accept: `pnpm test --coverage` enforces 90% lines for `src/core` and passes.
 

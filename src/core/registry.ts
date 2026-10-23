@@ -60,17 +60,29 @@ function linkedinId(url: URL): string | null {
   return current !== null && LINKEDIN_ID_PATTERN.test(current) ? current : null;
 }
 
-/** Maps a supported job URL to `{ source, id, canonicalUrl }`, or `null` (PORTAL-1). */
-export function mapUrl(raw: string): { source: SourceId; id: string; canonicalUrl: string } | null {
-  let url: URL;
+function parseHttps(raw: string): URL | null {
   try {
-    url = new URL(raw);
+    const url = new URL(raw);
+    return url.protocol === 'https:' ? url : null;
   } catch {
     return null;
   }
-  if (url.protocol !== 'https:') return null;
+}
+
+/**
+ * Whether the URL is https on a registered portal host (apex or subdomain). The navigation guard
+ * calls this so the registry stays the only place that compares hostnames.
+ */
+export function isRegistryUrl(raw: string): boolean {
+  const url = parseHttps(raw);
+  return url !== null && PORTALS.some((portal) => isOnApex(url.hostname, portal.apex));
+}
+
+/** Maps a supported job URL to `{ source, id, canonicalUrl }`, or `null` (PORTAL-1). */
+export function mapUrl(raw: string): { source: SourceId; id: string; canonicalUrl: string } | null {
+  const url = parseHttps(raw);
   const linkedin = entryFor('linkedin');
-  if (!linkedin || !isOnApex(url.hostname, linkedin.apex)) return null;
+  if (!url || !linkedin || !isOnApex(url.hostname, linkedin.apex)) return null;
   const id = linkedinId(url);
   const canonicalUrl = id === null ? null : canonicalFor('linkedin', id);
   if (id === null || canonicalUrl === null) return null;

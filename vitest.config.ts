@@ -5,6 +5,11 @@ export default defineConfig({
   plugins: [WxtVitest()],
   test: {
     setupFiles: ['tests/setup/vitest.setup.ts'],
+    coverage: {
+      provider: 'v8',
+      include: ['src/core/**/*.ts'],
+      thresholds: { lines: 90 },
+    },
     projects: [
       {
         extends: true,
