@@ -370,3 +370,22 @@ export function snapshotIds(snapshot: Profile): string[] {
     ...dealbreakerRefs(snapshot).keys(),
   ];
 }
+
+/**
+ * The audit of one output against its cache-key inputs. Post-validation step 8b and derived step 9b
+ * both call this, so the corpus, the ignored ids and the score exclusion cannot drift apart.
+ */
+export function auditOutput(input: {
+  rationale: string;
+  score: number;
+  requestText: string;
+  snapshot: Profile;
+  /** Test seam (simulates a table change, task 7.4). */
+  tables?: AuditTables;
+}): Diagnostics['ungroundedClaims'] {
+  return auditRationale(input.rationale, buildCorpus(input.requestText, input.snapshot), {
+    score: input.score,
+    ids: snapshotIds(input.snapshot),
+    tables: input.tables,
+  });
+}

@@ -3,6 +3,7 @@ import {
   AUDIT_TABLES,
   AUDIT_VERSION,
   type AuditTables,
+  auditOutput,
   auditRationale,
   buildCorpus,
   expandK,
@@ -344,6 +345,45 @@ describe('buildCorpus is limited to cache-key inputs (ADR-29)', () => {
 
   it('lists the ids the audit must ignore', () => {
     expect(snapshotIds(snapshot).sort()).toEqual(['b-7', 'b-7/d0', 'c-12', 'c-2']);
+  });
+});
+
+describe('auditOutput is the one call both step 8b and derived step 9b make', () => {
+  const snapshot: Profile = {
+    id: 'active',
+    claims: [{ id: 'c-12', statement: 'Led a team of 8 engineers', tags: [] }],
+    branches: [],
+    companyBlocklist: [],
+    nextClaimSeq: 13,
+    nextBranchSeq: 1,
+  };
+  const base = { requestText: 'We need 5 years of Go.', snapshot, score: 70 };
+
+  it('grounds a figure from the request text and the snapshot, and ignores snapshot ids', () => {
+    const rationale = 'Has 5 years, a team of 8, and see c-12.';
+    expect(auditOutput({ ...base, rationale })).toEqual({
+      count: 0,
+      samples: [],
+      auditVersion: AUDIT_VERSION,
+    });
+  });
+
+  it('counts a figure that neither the request text nor the snapshot holds', () => {
+    expect(auditOutput({ ...base, rationale: 'Has 9 years and 5 years.' })).toEqual({
+      count: 1,
+      samples: ['9 years'],
+      auditVersion: AUDIT_VERSION,
+    });
+  });
+
+  it('forwards the score exclusion and the injected tables', () => {
+    expect(auditOutput({ ...base, rationale: 'Scored 70 and 3 anys.', score: 70 }).count).toBe(0);
+    const tables = { ...AUDIT_TABLES, version: 'audit-x', durationUnits: ['anys'] };
+    expect(auditOutput({ ...base, rationale: 'Scored 70 and 3 anys.', tables })).toEqual({
+      count: 1,
+      samples: ['3 anys'],
+      auditVersion: 'audit-x',
+    });
   });
 });
 
