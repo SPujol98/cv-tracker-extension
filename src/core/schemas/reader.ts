@@ -6,7 +6,13 @@
 // Zod runs with `jitless`, configured once at startup.
 
 import { z } from 'zod';
-import type { PageMarkers, RawSearchItem, ReadResult } from '../ports/portal.ts';
+import type {
+  GenericPreview,
+  OfferDetail,
+  PageMarkers,
+  RawSearchItem,
+  ReadResult,
+} from '../ports/portal.ts';
 
 /** Every cap in one place (design Contract E; the 50,000 text cap is the transfer cap). */
 export const READER_CAPS = {
@@ -37,6 +43,18 @@ const searchItemSchema = z.strictObject({
   location: z.string().max(READER_CAPS.location).optional(),
 });
 
+const detailSchema = z.strictObject({
+  title: z.string().max(READER_CAPS.title),
+  company: z.string().max(READER_CAPS.company),
+  location: z.string().max(READER_CAPS.location).optional(),
+  text: z.string().max(READER_CAPS.text),
+});
+
+const genericPreviewSchema = z.strictObject({
+  title: z.string().max(READER_CAPS.title),
+  text: z.string().max(READER_CAPS.text),
+});
+
 const unreadableSchema = z.strictObject({
   ok: z.literal(false),
   failure: z.literal('unreadable'),
@@ -54,6 +72,18 @@ const searchOkSchema = z.strictObject({
   /** The page's own "no results" marker: the only thing that makes an empty list a real answer. */
   noResults: z.boolean(),
   data: z.array(searchItemSchema).max(READER_CAPS.items),
+});
+
+const detailOkSchema = z.strictObject({
+  ok: z.literal(true),
+  strategy: strategyName,
+  data: detailSchema,
+});
+
+const genericOkSchema = z.strictObject({
+  ok: z.literal(true),
+  strategy: strategyName,
+  data: genericPreviewSchema,
 });
 
 /** Why a result was rejected: a count and field names, never page text. */
@@ -138,6 +168,31 @@ export function parseSearchResult(raw: unknown, idPattern: RegExp): ReaderParse<
     };
   }
   return { result: { ok: true, strategy: value.strategy, data: items }, detail: null };
+}
+
+export function parseDetailResult(raw: unknown): ReaderParse<OfferDetail> {
+  const parsed = schemaFor(raw, detailOkSchema).safeParse(raw);
+  if (!parsed.success) return rejected(parsed.error);
+  const value = parsed.data;
+  return {
+    result: value.ok
+      ? { ok: true, strategy: value.strategy, data: value.data }
+      : parseFailureVariant(value),
+    detail: null,
+  };
+}
+
+/** The generic reader returns title and text only; its URL comes from `tabs.get` (A19). */
+export function parseGenericResult(raw: unknown): ReaderParse<GenericPreview> {
+  const parsed = schemaFor(raw, genericOkSchema).safeParse(raw);
+  if (!parsed.success) return rejected(parsed.error);
+  const value = parsed.data;
+  return {
+    result: value.ok
+      ? { ok: true, strategy: value.strategy, data: value.data }
+      : parseFailureVariant(value),
+    detail: null,
+  };
 }
 
 /** The page markers: exactly five booleans, or `null` with the reason. */

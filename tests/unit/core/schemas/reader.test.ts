@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  parseDetailResult,
+  parseGenericResult,
   parseMarkers,
   parseSearchResult,
   READER_CAPS,
@@ -21,6 +23,13 @@ const search = (items: unknown, over: Record<string, unknown> = {}) => ({
   data: items,
   ...over,
 });
+const detail = (data: Record<string, unknown> = {}, over: Record<string, unknown> = {}) => ({
+  ok: true,
+  strategy: 'main',
+  data: { title: 'Engineer', company: 'Example Co', text: 'Plain text', ...data },
+  ...over,
+});
+
 const MARKERS = {
   loginForm: false,
   authwall: false,
@@ -188,6 +197,47 @@ describe('parseSearchResult id pattern and noResults (PORTAL-3)', () => {
   });
 });
 
+describe('parseDetailResult and parseGenericResult (PRIV-11)', () => {
+  it('parses a valid detail with and without a location', () => {
+    expect(parseDetailResult(detail()).result).toEqual(detail());
+    expect(parseDetailResult(detail({ location: 'Madrid' })).result).toEqual(
+      detail({ location: 'Madrid' }),
+    );
+  });
+
+  it('caps the text at 50,000 characters: 50,000 passes and 50,001 fails', () => {
+    expect(parseDetailResult(detail({ text: repeat(50_000) })).result).toMatchObject({ ok: true });
+    const over = parseDetailResult(detail({ text: repeat(50_001) }));
+    expect(over.result).toEqual({ ok: false, failure: 'unreadable', attempted: [] });
+    expect(over.detail?.fields).toEqual(['data.text']);
+  });
+
+  it.each([
+    ['title', 300, (n: number) => detail({ title: repeat(n) })],
+    ['company', 200, (n: number) => detail({ company: repeat(n) })],
+    ['location', 200, (n: number) => detail({ location: repeat(n) })],
+  ])('the detail %s cap is %i characters', (field, cap, make) => {
+    expect(parseDetailResult(make(cap)).result).toMatchObject({ ok: true });
+    expect(parseDetailResult(make(cap + 1)).detail?.fields).toEqual([`data.${field}`]);
+  });
+
+  it('fails the whole detail for an unknown field at any level', () => {
+    expect(parseDetailResult(detail({ href: 'https://evil.example/' })).detail).not.toBeNull();
+    expect(parseDetailResult({ ...detail(), url: 'https://evil.example/' }).detail).not.toBeNull();
+  });
+
+  it('parses a generic preview of title and text only', () => {
+    const preview = { ok: true, strategy: 'main', data: { title: 'T', text: 'body' } };
+    expect(parseGenericResult(preview).result).toEqual(preview);
+    const withUrl = { ...preview, data: { ...preview.data, url: 'https://evil.example/' } };
+    expect(parseGenericResult(withUrl).result).toEqual({
+      ok: false,
+      failure: 'unreadable',
+      attempted: [],
+    });
+  });
+});
+
 describe('strategy names and attempted lists (PORTAL-4)', () => {
   const failure = (attempted: unknown[]) => ({ ok: false, failure: 'unreadable', attempted });
 
@@ -239,5 +289,13 @@ describe('a failure message and its logged detail never carry page text (PRIV-11
       message: 'Reader result rejected: 1 issue in data[].',
     });
     expect(JSON.stringify(detail)).not.toContain(CANARY);
+  });
+
+  it('never echoes a wrong-typed value or a canary text length for the detail text', () => {
+    const typed = parseDetailResult(detail({ title: { nested: CANARY } })).detail;
+    expect(typed?.fields).toEqual(['data.title']);
+    expect(JSON.stringify(typed)).not.toContain(CANARY);
+    const long = parseDetailResult(detail({ text: `${CANARY}${repeat(50_000)}` })).detail;
+    expect(JSON.stringify(long)).not.toContain(CANARY);
   });
 });
