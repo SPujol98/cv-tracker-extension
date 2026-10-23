@@ -89,6 +89,7 @@ const run = (
     { ...validated, ...over.output },
     {
       fullText: over.fullText ?? english,
+      requestText: over.fullText ?? english,
       snapshot,
       pdfs: over.pdfs ?? [],
       meta: { ...meta, cached: over.cached ?? meta.cached },
@@ -164,14 +165,12 @@ describe('derive recomputes every derived field from the current inputs (A15)', 
   });
 });
 
-describe('derive passes the ungrounded count to the verdict (A18)', () => {
-  const ungrounded = {
-    ...validated.diagnostics,
-    ungroundedClaims: { count: 1, samples: ['5 years'], auditVersion: 'audit-1' },
-  };
+describe('derive feeds the audit count of step 9b to the verdict (A18; 2a.27 replaced the pass-through)', () => {
+  // The offer text never mentions 5 years, so the audit of this rationale finds one claim.
+  const ungrounded = { rationale: 'Overlaps with the stack and 5 years of Go.' };
 
   it('derives review and grounding_downgrade for score 85 with one ungrounded claim', () => {
-    const result = run({ output: { diagnostics: ungrounded } });
+    const result = run({ output: ungrounded });
     expect(result).toMatchObject({ verdict: 'review', verdictReason: 'grounding_downgrade' });
     expect(result.diagnostics.ungroundedClaims.count).toBe(1);
   });
@@ -184,14 +183,14 @@ describe('derive passes the ungrounded count to the verdict (A18)', () => {
       basis: 'dealbreaker' as const,
       ref: 'b-1/d0',
     };
-    expect(run({ output: { walls: [wall], diagnostics: ungrounded } })).toMatchObject({
+    expect(run({ output: { walls: [wall], ...ungrounded } })).toMatchObject({
       verdict: 'skip',
       verdictReason: 'wall',
     });
   });
 
   it('does not touch a review score', () => {
-    const result = run({ output: { score: 50, diagnostics: ungrounded } });
+    const result = run({ output: { score: 50, ...ungrounded } });
     expect(result).toMatchObject({ verdict: 'review', verdictReason: 'score' });
   });
 });

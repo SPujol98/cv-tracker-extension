@@ -32,3 +32,10 @@ describe('cacheKey (ANALYSIS-9, interpretation (a))', () => {
     );
   });
 });
+
+describe('the audit version is not a cache-key component (ADR-29; A15)', () => {
+  it('takes exactly the four key components, so an audit change never discards cached output', () => {
+    // Characterization of the 2a.7 key: nothing here can carry `AUDIT_VERSION`.
+    expect(cacheKey.length).toBe(4);
+  });
+});

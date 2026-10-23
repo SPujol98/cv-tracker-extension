@@ -1,13 +1,14 @@
 // Derived fields of an analysis (Contract C steps 9-13; ANALYSIS-9, ANALYSIS-10; amendments A15,
-// A18). `derive` runs on every fresh result and on every cache hit, so verdict, language, warnings,
-// injection flags and the recommended PDF always come from the current offer text and PDFs; only
-// the `ValidatedOutput` is ever stored.
+// A18). `derive` runs on every fresh result and on every cache hit, so the ungrounded claims
+// (step 9b), verdict, language, warnings, injection flags and the recommended PDF always come from
+// the current offer text, profile and PDFs; only the `ValidatedOutput` is ever stored.
 import { detectApplyWarnings } from '../applyWarnings.ts';
 import { injectionSignals } from '../injectionSignals.ts';
 import { inferLanguage } from '../language.ts';
 import type { AnalysisResult, ValidatedOutput } from '../schemas/analysis.ts';
 import type { CvPdfMeta, Profile } from '../schemas/profile.ts';
 import { pickPdf } from './pickPdf.ts';
+import { type AuditTables, auditRationale, buildCorpus, snapshotIds } from './rationaleAudit.ts';
 import { deriveVerdict } from './verdict.ts';
 
 /** Fields of the result that come from the call itself, not from the validated output. */
@@ -26,20 +27,30 @@ export interface DeriveMeta {
 export interface DeriveContext {
   /** The full normalized offer text, never the capped request (A16). */
   fullText: string;
+  /** The capped, normalized request text: the cache-key input the audit corpus is built from. */
+  requestText: string;
   snapshot: Profile;
   pdfs: readonly CvPdfMeta[];
   meta: DeriveMeta;
+  /** Test seam: audit tables other than the shipped ones (simulates a table change, task 7.4). */
+  auditTables?: AuditTables;
 }
 
 export function derive(validated: ValidatedOutput, context: DeriveContext): AnalysisResult {
-  const { fullText, snapshot, pdfs, meta } = context;
+  const { fullText, requestText, snapshot, pdfs, meta } = context;
   const injection = injectionSignals(fullText);
+  // Step 9b: the stored audit is never trusted; the audit logic is not a cache-key input.
+  const ungroundedClaims = auditRationale(validated.rationale, buildCorpus(requestText, snapshot), {
+    score: validated.score,
+    ids: snapshotIds(snapshot),
+    tables: context.auditTables,
+  });
   const { verdict, reason } = deriveVerdict({
     score: validated.score,
     acceptedWalls: validated.walls,
     injectionSuspected: injection.suspected,
     // A18: the count stands in for the rationale, which the verdict never sees.
-    ungroundedClaims: validated.diagnostics.ungroundedClaims.count,
+    ungroundedClaims: ungroundedClaims.count,
   });
   const language = inferLanguage(fullText);
   const pick = pickPdf(validated.branchId, language, pdfs);
@@ -68,7 +79,7 @@ export function derive(validated: ValidatedOutput, context: DeriveContext): Anal
     profileVersion: meta.profileVersion,
     adapterVersion: meta.adapterVersion,
     outputLanguage: meta.outputLanguage,
-    diagnostics: validated.diagnostics,
+    diagnostics: { ...validated.diagnostics, ungroundedClaims },
     flags: { injectionSuspected: injection.suspected, injectionMatches: injection.matches },
     createdAt: meta.createdAt,
   };
