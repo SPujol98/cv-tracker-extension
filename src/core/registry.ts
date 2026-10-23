@@ -134,34 +134,23 @@ function linkedinId(url: URL): string | null {
   return current !== null && LINKEDIN_ID_PATTERN.test(current) ? current : null;
 }
 
-function parseHttps(raw: string): URL | null {
-  try {
-    const url = new URL(raw);
-    return url.protocol === 'https:' ? url : null;
-  } catch {
-    return null;
-  }
-}
-
 /**
- * The parsed URL when it is https on a registered portal host (apex or subdomain), else `null`.
- * The navigation guard calls this so the registry stays the only place that compares hostnames,
- * and the guard reuses the parse instead of repeating it.
+ * The parsed URL when `classifyHost` says it is a portal host (A20), else `null`. The navigation
+ * guard calls this so the registry stays the only place that compares hostnames, and the guard
+ * reuses the parse instead of repeating it.
  */
 export function parseRegistryUrl(raw: string): URL | null {
-  const url = parseHttps(raw);
-  return url !== null && PORTALS.some((portal) => isOnApex(url.hostname, portal.apex)) ? url : null;
+  return classifyHost(raw).kind === 'portal' ? new URL(raw) : null;
 }
 
-/** Whether the URL is https on a registered portal host. */
+/** Whether `classifyHost` classifies the URL as a portal host. */
 export const isRegistryUrl = (raw: string): boolean => parseRegistryUrl(raw) !== null;
 
 /** Maps a supported job URL to `{ source, id, canonicalUrl }`, or `null` (PORTAL-1). */
 export function mapUrl(raw: string): { source: SourceId; id: string; canonicalUrl: string } | null {
-  const url = parseHttps(raw);
-  const linkedin = entryFor('linkedin');
-  if (!url || !linkedin || !isOnApex(url.hostname, linkedin.apex)) return null;
-  const id = linkedinId(url);
+  const host = classifyHost(raw);
+  if (host.kind !== 'portal' || host.source !== 'linkedin') return null;
+  const id = linkedinId(new URL(raw));
   if (id === null) return null;
   const canonicalUrl = canonicalFor('linkedin', id);
   return canonicalUrl === null ? null : { source: 'linkedin', id, canonicalUrl };
