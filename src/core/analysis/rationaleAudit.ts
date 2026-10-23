@@ -2,6 +2,121 @@
 // step 8b and derived step 9b. Pure and deterministic: no provider call, no clock, no locale. This
 // file holds the single numeric parsing rule that both the rationale and the evidence corpus go
 // through, so a figure written `€50.000` in an offer grounds `50,000 EUR` in a rationale.
+//
+// Catalan unit words and number words are added in sub-change 7 (task 7.4), which bumps
+// `AUDIT_VERSION`; the tables below are EN and ES only.
+
+import { MAX_UNGROUNDED_SAMPLE_CHARS, MAX_UNGROUNDED_SAMPLES } from '../schemas/analysis.ts';
+
+/** Identifies the audit logic; recorded with the ungrounded claims, never a cache-key component. */
+export const AUDIT_VERSION = 'audit-1';
+
+/**
+ * Every table and extraction constant of the audit. A snapshot test hashes this object and maps the
+ * hash to `AUDIT_VERSION`, so changing any entry without a version bump fails (ADR-29).
+ */
+export interface AuditTables {
+  /** Recorded as `ungroundedClaims.auditVersion`. */
+  version: string;
+  /** Lowercase unit words that make `<number> <unit>` a duration assertion. */
+  durationUnits: readonly string[];
+  /** Number words in the corpus, mapped to the digits they stand for. */
+  numberWords: Readonly<Record<string, string>>;
+  currencySigns: string;
+  /** Lowercase currency codes. */
+  currencyCodes: readonly string[];
+  /** Multiplies a number by 1,000 when it directly follows it. */
+  thousandsSuffix: string;
+  /** Calendar years are separator-free 4-digit tokens in this inclusive range. */
+  yearMin: number;
+  yearMax: number;
+  maxSamples: number;
+  maxSampleChars: number;
+}
+
+export const AUDIT_TABLES: AuditTables = {
+  version: AUDIT_VERSION,
+  durationUnits: [
+    // EN
+    'year',
+    'years',
+    'yr',
+    'yrs',
+    'month',
+    'months',
+    'week',
+    'weeks',
+    'day',
+    'days',
+    // ES
+    'año',
+    'años',
+    'ano',
+    'anos',
+    'mes',
+    'meses',
+    'semana',
+    'semanas',
+    'día',
+    'días',
+    'dia',
+    'dias',
+  ],
+  numberWords: {
+    // EN
+    one: '1',
+    two: '2',
+    three: '3',
+    four: '4',
+    five: '5',
+    six: '6',
+    seven: '7',
+    eight: '8',
+    nine: '9',
+    ten: '10',
+    eleven: '11',
+    twelve: '12',
+    thirteen: '13',
+    fourteen: '14',
+    fifteen: '15',
+    sixteen: '16',
+    seventeen: '17',
+    eighteen: '18',
+    nineteen: '19',
+    twenty: '20',
+    // ES
+    un: '1',
+    uno: '1',
+    una: '1',
+    dos: '2',
+    tres: '3',
+    cuatro: '4',
+    cinco: '5',
+    seis: '6',
+    siete: '7',
+    ocho: '8',
+    nueve: '9',
+    diez: '10',
+    once: '11',
+    doce: '12',
+    trece: '13',
+    catorce: '14',
+    quince: '15',
+    dieciseis: '16',
+    dieciséis: '16',
+    diecisiete: '17',
+    dieciocho: '18',
+    diecinueve: '19',
+    veinte: '20',
+  },
+  currencySigns: '€$£',
+  currencyCodes: ['eur', 'usd', 'gbp'],
+  thousandsSuffix: 'k',
+  yearMin: 1950,
+  yearMax: 2099,
+  maxSamples: MAX_UNGROUNDED_SAMPLES,
+  maxSampleChars: MAX_UNGROUNDED_SAMPLE_CHARS,
+};
 
 /** Separators that appear inside a numeric token (Contract C, "Step 8b numeric parsing"). */
 const NUMERIC_TOKEN = /^\d+(?:[.,]\d+)*$/;
