@@ -31,6 +31,7 @@ const expectationSchema = z.object({
   injectionSuspected: z.boolean().optional(),
   branchName: z.string().optional(),
   walls: z.number().optional(),
+  ungrounded: z.number().optional(),
   droppedWeakWalls: z.number().optional(),
 });
 
@@ -91,6 +92,7 @@ describe('golden synthetic offers end to end through the fake provider', () => {
   it('loads every fixture the suite is written for', () => {
     expect(offers.map((o) => o.file)).toEqual([
       'en-backend-pdf-history.json',
+      'en-backend-stray-figure.json',
       'en-backend.json',
       'es-fullstack.json',
       'injection-delimiter.json',
@@ -119,6 +121,7 @@ describe('golden synthetic offers end to end through the fake provider', () => {
     expect(outcome.branchName).toBe(want.branchName);
     expect(outcome.walls).toHaveLength(want.walls ?? 0);
     expect(outcome.diagnostics.droppedWalls.weakEvidence).toBe(want.droppedWeakWalls ?? 0);
+    expect(outcome.diagnostics.ungroundedClaims.count).toBe(want.ungrounded ?? 0);
   });
 });
 
