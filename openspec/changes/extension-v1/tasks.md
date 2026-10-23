@@ -479,14 +479,14 @@ Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage
 
 ### PR 2a-8 - Source-host classification (~220 lines; amendment A20)
 
-- [ ] 2a.28 RED: `classifyHost` vectors (PORTAL-11; Contract E; A20)
+- [x] 2a.28 RED: `classifyHost` vectors (PORTAL-11; Contract E; A20)
   - Files: `tests/unit/core/classifyHost.test.ts`
   - RED, table-driven; none of the negatives may yield `kind: 'portal'`: `https://linkedin.com@evil.example/jobs/view/1/` (`userinfo`), `https://linkedin.com.evil.com/` (`unknown_host`), `https://evil-linkedin.com/` (`unknown_host`), `https://www.linkedin.com./jobs/view/1/` (`trailing_dot`), a punycode host `https://xn--lnkedin-xyz.com/` and a Unicode look-alike (`punycode`), `http://www.linkedin.com/jobs/view/1/` (`not_https`), `https://www.linkedin.com:8443/jobs/view/1/` (`port`), `javascript:alert(1)` and `data:text/html,x` (`not_https`), an unparseable string (`unparseable`). Positives: `https://linkedin.com/`, `https://www.linkedin.com/`, a country subdomain (`https://es.linkedin.com/`), `https://www.infojobs.net/` classify as `portal` with the right `source`; a host from `KNOWN_ATS_APEXES` and a subdomain of it classify as `known_ats`; an unlisted host is `unverified/unknown_host`; the default `:443` is accepted (WHATWG drops it).
-- [ ] 2a.29 GREEN: `classifyHost` and `KNOWN_ATS_APEXES` (PORTAL-11; A20)
+- [x] 2a.29 GREEN: `classifyHost` and `KNOWN_ATS_APEXES` (PORTAL-11; A20)
   - Files: `src/core/registry.ts`
   - Do: WHATWG parse, https only, empty userinfo and port, no trailing dot, no `xn--` label, then `hostname === apex || hostname.endsWith('.' + apex)` over the portal apex table, then `KNOWN_ATS_APEXES` (a short, freshly authored, data-only list). No other module compares hostnames after 2a.30.
   - Accept: 2a.28 green.
-- [ ] 2a.30 RED then GREEN: `mapUrl`, the guard and the generic flow delegate to `classifyHost` (PORTAL-11, PORTAL-6; A20)
+- [x] 2a.30 RED then GREEN: `mapUrl`, the guard and the generic flow delegate to `classifyHost` (PORTAL-11, PORTAL-6; A20)
   - Files: `src/core/registry.ts`, `src/core/guard.ts`, `tests/unit/core/registry.test.ts`, `tests/unit/core/guard.test.ts`
   - RED: `mapUrl` returns `null` and `isAllowedNavigation` returns `false` for every negative vector from 2a.28 even when the path looks like a LinkedIn offer; the guard still rejects `/jobs-guest/`, `/job-apply/` and `runSearch` on a valid portal host; a `known_ats` or `unverified` URL is never allowed for navigation or reading; an `unverified` result still allows the generic preview (informational only: no throw, no block).
   - Do: replace any hostname comparison in 2a.21 and 2a.22 with `classifyHost(url).kind === 'portal'`; a grep-based unit test asserts `registry.ts` is the only `src/core` file that reads `.hostname`.

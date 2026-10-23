@@ -161,3 +161,43 @@ describe('isAllowedNavigation rejects disallowed access forms (PORTAL-6)', () =>
     });
   });
 });
+
+describe('isAllowedNavigation delegates to classifyHost: only a portal host passes (PORTAL-11, A20)', () => {
+  const offer = '/jobs/view/3812345678/';
+  const withUserinfo = (raw: string): string => {
+    const url = new URL(raw);
+    url.username = 'someone';
+    return url.href;
+  };
+
+  it.each([
+    ['user information on a portal host', withUserinfo(`https://www.linkedin.com${offer}`)],
+    ['user information that names a portal', `https://linkedin.com@evil.example${offer}`],
+    ['a suffix look-alike', `https://linkedin.com.evil.com${offer}`],
+    ['a prefix look-alike', `https://evil-linkedin.com${offer}`],
+    ['a trailing dot', `https://www.linkedin.com.${offer}`],
+    ['a punycode host', `https://xn--lnkedin-xyz.com${offer}`],
+    ['a Unicode look-alike', `https://l\u0131nkedin.com${offer}`],
+    ['http', `http://www.linkedin.com${offer}`],
+    ['a non-default port', `https://www.linkedin.com:8443${offer}`],
+    ['a javascript URL', 'javascript:alert(1)'],
+    ['a data URL', 'data:text/html,x'],
+    ['an unparseable string', 'not a url'],
+  ])('rejects %s even with a LinkedIn offer path', (_name, url) => {
+    expect(isAllowedNavigation(url)).toBe(false);
+  });
+
+  it.each([
+    ['a known applicant-tracking host', 'https://boards.greenhouse.io/example/jobs/1'],
+    ['an unverified host', 'https://careers.example/jobs/1'],
+  ])('never allows %s', (_name, url) => {
+    expect(isAllowedNavigation(url)).toBe(false);
+  });
+
+  it('still rejects the forbidden forms on a valid portal host and accepts the default port', () => {
+    expect(isAllowedNavigation('https://www.linkedin.com/jobs-guest/x')).toBe(false);
+    expect(isAllowedNavigation('https://www.linkedin.com/job-apply/1')).toBe(false);
+    expect(isAllowedNavigation('https://www.linkedin.com/jobs/search/?runSearch=1')).toBe(false);
+    expect(isAllowedNavigation(`https://www.linkedin.com:443${offer}`)).toBe(true);
+  });
+});

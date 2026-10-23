@@ -1,7 +1,10 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   canonicalFor,
   canonicalizeGenericUrl,
+  classifyHost,
   hostPermissions,
   isRegistryUrl,
   LINKEDIN_ID_PATTERN,
@@ -236,5 +239,67 @@ describe('parseRegistryUrl hands the parsed URL to the guard (R2)', () => {
     '',
   ])('returns null for %s', (raw) => {
     expect(parseRegistryUrl(raw)).toBeNull();
+  });
+});
+
+// A20: the same vector list the host classifier rejects, each carrying a real LinkedIn offer path.
+const withUserinfo = (raw: string): string => {
+  const url = new URL(raw);
+  url.username = 'someone';
+  return url.href;
+};
+const LINKEDIN_PATH = '/jobs/view/3812345678/';
+const SPOOFED_OFFER_URLS: readonly (readonly [string, string])[] = [
+  ['user information on a portal host', withUserinfo(`https://www.linkedin.com${LINKEDIN_PATH}`)],
+  ['user information that names a portal', `https://linkedin.com@evil.example${LINKEDIN_PATH}`],
+  ['a suffix look-alike', `https://linkedin.com.evil.com${LINKEDIN_PATH}`],
+  ['a prefix look-alike', `https://evil-linkedin.com${LINKEDIN_PATH}`],
+  ['a trailing dot', `https://www.linkedin.com.${LINKEDIN_PATH}`],
+  ['a punycode host', `https://xn--lnkedin-xyz.com${LINKEDIN_PATH}`],
+  ['a Unicode look-alike', `https://l\u0131nkedin.com${LINKEDIN_PATH}`],
+  ['http', `http://www.linkedin.com${LINKEDIN_PATH}`],
+  ['a non-default port', `https://www.linkedin.com:8443${LINKEDIN_PATH}`],
+  ['a javascript URL', 'javascript:alert(1)'],
+  ['a data URL', 'data:text/html,x'],
+];
+
+describe('mapUrl and the registry host check delegate to classifyHost (PORTAL-11, A20)', () => {
+  it.each(SPOOFED_OFFER_URLS)('mapUrl returns null for %s', (_name, url) => {
+    expect(mapUrl(url)).toBeNull();
+  });
+
+  it.each(SPOOFED_OFFER_URLS)('the registry host check rejects %s', (_name, url) => {
+    expect(isRegistryUrl(url)).toBe(false);
+    expect(parseRegistryUrl(url)).toBeNull();
+  });
+
+  it('still maps a genuine offer URL and a country subdomain', () => {
+    expect(mapUrl(`https://es.linkedin.com${LINKEDIN_PATH}`)?.id).toBe('3812345678');
+    expect(mapUrl(`https://www.linkedin.com:443${LINKEDIN_PATH}`)?.id).toBe('3812345678');
+  });
+
+  it('does not treat an applicant-tracking host as a registry host', () => {
+    expect(isRegistryUrl('https://boards.greenhouse.io/example/jobs/1')).toBe(false);
+    expect(classifyHost('https://boards.greenhouse.io/example/jobs/1').kind).toBe('known_ats');
+  });
+
+  it('keeps the generic preview flow informational for an unverified host (no throw)', () => {
+    expect(classifyHost('https://careers.example/jobs/1#top')).toMatchObject({
+      kind: 'unverified',
+    });
+    expect(canonicalizeGenericUrl('https://careers.example/jobs/1#top')).toBe(
+      'https://careers.example/jobs/1',
+    );
+    expect(canonicalizeGenericUrl('not a url')).toBe('not a url');
+  });
+});
+
+describe('registry.ts is the only src/core file that reads a hostname (PORTAL-11, A20)', () => {
+  it('finds `.hostname` only in registry.ts', () => {
+    const root = fileURLToPath(new URL('../../../src/core/', import.meta.url));
+    const readers = (readdirSync(root, { recursive: true, encoding: 'utf8' }) as string[])
+      .filter((file) => file.endsWith('.ts'))
+      .filter((file) => /\.hostname\b/.test(readFileSync(`${root}${file}`, 'utf8')));
+    expect(readers).toEqual(['registry.ts']);
   });
 });
