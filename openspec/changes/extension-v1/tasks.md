@@ -494,10 +494,10 @@ Exit: golden synthetic fixtures pass with the fake provider; `src/core` coverage
 
 ### PR 2a-9 - Strict reader result schemas (~150 lines; amendment A19)
 
-- [ ] 2a.31 RED: reader result schemas and caps (PRIV-11, PORTAL-3, PORTAL-4; ADR-14 item 7, Contract E; A19)
+- [x] 2a.31 RED: reader result schemas and caps (PRIV-11, PORTAL-3, PORTAL-4; ADR-14 item 7, Contract E; A19)
   - Files: `tests/unit/core/schemas/reader.test.ts`
   - RED, table-driven: `PageMarkers` accepts only five booleans (a string or extra key fails); a search result with an unknown field at any level fails as a whole; caps: `id` 64 characters, `title` 300, `company` 200, `location` 200, detail `text` 50,000 (one character over fails), at most 100 search items, at most 10 `attempted` strategy names of at most 40 characters each, strategy name 41 characters fails; `parseSearchResult(raw, idPattern)` drops an item whose id fails the pattern but keeps the others, returns `unreadable` when zero valid items remain and `noResults` is false, and returns `[]` only when `noResults` is true; a result that parses with a URL-like `href` field fails (strict); a failure message and the logged detail contain only the count and field name, never page text.
-- [ ] 2a.32 GREEN: `src/core/schemas/reader.ts` (PRIV-11; A19)
+- [x] 2a.32 GREEN: `src/core/schemas/reader.ts` (PRIV-11; A19)
   - Files: `src/core/schemas/reader.ts`
   - Do: `.strict()` Zod schemas for markers, search result, detail result and generic preview (title and text only), plus `parseSearchResult`, `parseDetailResult`, `parseMarkers`; a parse failure maps to `ReadResult` `unreadable`. Zod runs with `jitless` (already configured at startup).
   - Accept: 2a.31 green; `src/core` coverage at or above 90%.
