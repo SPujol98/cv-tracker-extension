@@ -510,19 +510,19 @@ Prerequisite: S1 and S2 verdicts merged (1.4). Exit: the shared provider contrac
 
 ### PR 2b-1 - Shared provider infrastructure (~380 lines)
 
-- [ ] 2b.1 Redactor (PRIV-3)
+- [x] 2b.1 Redactor (PRIV-3)
   - Files: `src/shared/redact.ts`, `tests/unit/shared/redact.test.ts`
   - RED: masks key values, `x-api-key` and `authorization` header values and provider-key patterns in strings and nested error messages.
-- [ ] 2b.2 SSE parser
+- [x] 2b.2 SSE parser
   - Files: `src/core/sse.ts`, `tests/unit/core/sse.test.ts`
   - RED: events split across chunk boundaries, multi-line `data:`, comments, CRLF, `[DONE]`.
-- [ ] 2b.3 Schema helpers (LLM-2, LLM-3)
+- [x] 2b.3 Schema helpers (LLM-2, LLM-3)
   - Files: `src/providers/schemaCompat.ts`, `tests/unit/providers/schemaCompat.test.ts`
   - RED: `assertSchemaCompatible` rejects `minLength`, `maximum` and recursive `$ref`; `toStrictSchema` makes every property required and sets `additionalProperties: false`.
-- [ ] 2b.4 Shared HTTP helper (ADR-21; LLM-4, LLM-5)
+- [x] 2b.4 Shared HTTP helper (ADR-21; LLM-4, LLM-5)
   - Files: `src/providers/http.ts`, `tests/unit/providers/http.test.ts`
   - RED (fake clock): retries only `transient` and `rate_limit`, at most 2, only before the first chunk; delay `max(RetryAfter, 2 s * 2^(n-1))`; a wait above 20 s stops retrying and throws `rate_limit` with `retryAfterMs`; `auth` never retried; 60 s inactivity timer reset per chunk and 240 s total yield `timeout`; abort yields `cancelled`; a 503 makes 3 requests, a 401 makes 1, `Retry-After: 7` waits at least 7 s; no retry after the first chunk.
-- [ ] 2b.5 Shared contract suite (LLM-1)
+- [x] 2b.5 Shared contract suite (LLM-1)
   - Files: `tests/contract/llmProvider.contract.ts`, `tests/contract/fake.contract.test.ts`
   - Do: `describeLlmProviderContract(factory, fixtures, { transport })` asserting event order (progress then one final), the final event carries `json`, `usage` and `model` (a missing field fails naming it), timeout and cancel behavior; HTTP-only assertions guarded by `transport: true`. Run now against the fake with `transport: false`.
 
